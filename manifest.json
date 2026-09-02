@@ -1,0 +1,16 @@
+{
+  "name": "Crishern",
+  "short_name": "Crishern",
+  "description": "Hipertrofia — entrenamiento personal",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fdf6fb",
+  "theme_color": "#fdf6fb",
+  "start_url": "./#/dashboard",
+  "lang": "es",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

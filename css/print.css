@@ -1,0 +1,57 @@
+@media print {
+  @page { size: A4; margin: 15mm; }
+
+  #topnav, .no-print, .anchors, .btn, .science-toggle, .science-panel { display: none !important; }
+
+  body { background: #fff; color: #000; font-size: 11pt; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body::after { display: none; }
+  #main { max-width: none; padding: 0; margin: 0; }
+
+  .card { border: 1px solid #ddd; break-inside: avoid; box-shadow: none; }
+  .card:hover { box-shadow: none; }
+  .report-section { break-before: auto; break-inside: avoid; margin-bottom: 14pt; }
+  .report-section.page-break { break-before: page; }
+
+  /* Ensure canvas (Chart.js) renders in print */
+  canvas { max-width: 100%; }
+}
+
+/* ── Brute workout views ── */
+@media print {
+  [data-back], #btn-print-session, #btn-complete-session, .timer-overlay, .week-nav-btn {
+    display: none !important;
+  }
+
+  body, #workout-view {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  :root {
+    --card: #fff;
+    --card2: #fff;
+    --border: #ccc;
+    --text: #000;
+    --dim: #444;
+  }
+
+  .phase-banner,
+  .phase-banner--pink, .phase-banner--mint, .phase-banner--gold,
+  .phase-banner--cyan, .phase-banner--purple {
+    background: #fff !important;
+    border: 1px solid #999 !important;
+    color: #000 !important;
+    box-shadow: none !important;
+  }
+
+  .eva-warning {
+    background: #fff !important;
+    border: 1px solid #999 !important;
+    box-shadow: none !important;
+    color: #000 !important;
+  }
+
+  .session-card, .session-card::before, .session-card::after {
+    box-shadow: none !important;
+  }
+}

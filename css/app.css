@@ -1,0 +1,333 @@
+/* css/app.css — Crishern PWA — Shojo mágico-kawaii con piratas */
+
+@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;800&family=Comfortaa:wght@400;600;700&family=JetBrains+Mono:wght@300;400;700&display=swap');
+
+:root {
+  --bg:       #fdf6fb;
+  --card:     #ffffff;
+  --card2:    #f6ecf9;
+  --border:   #e8d3f0;
+  --text:     #3a2a44;
+  --dim:      #9b87a8;
+
+  /* Acentos pastel por sesión (session.color en workout-data.js) */
+  --lilac:    #b79cf0;
+  --pink:     #ff9ecb;
+  --cyan:     #7fd6e8;
+  --gold:     #ffd88a;
+
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  /* Motor genérico (js/views/workout.js) */
+  --accent: var(--lilac);
+  --note:   #8a6aa8;
+  --font-display: 'Baloo 2', cursive;
+  --role-t2:      var(--cyan);
+  --role-t3:      var(--pink);
+  --role-cardio:  var(--gold);
+  --role-comment: var(--note);
+
+  --glow-lilac: 0 0 10px rgba(183,156,240,.45);
+  --glow-pink:  0 0 10px rgba(255,158,203,.45);
+  --glow-cyan:  0 0 10px rgba(127,214,232,.45);
+  --glow-gold:  0 0 10px rgba(255,216,138,.45);
+
+  /* nutrical compat */
+  --surface:   #ffffff;
+  --surface-2: #f6ecf9;
+  --surface-3: #efe0f4;
+  --muted:     #9b87a8;
+  --muted-2:   #c2aed1;
+  --border-2:  #e8d3f0;
+}
+
+/* ── Global font ── */
+body {
+  font-family: 'Comfortaa', 'Baloo 2', cursive;
+  background: var(--bg);
+  color: var(--text);
+  padding-bottom: calc(64px + var(--safe-bottom));
+  overflow-x: hidden;
+}
+
+h1, h2, h3, .brand {
+  font-family: 'Baloo 2', cursive !important;
+  letter-spacing: .02em;
+}
+
+/* ── Sparkles de fondo — brillos sutiles tipo carta mágica ── */
+#app::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    radial-gradient(1px 1px at 10% 20%, rgba(183,156,240,.5) 50%, transparent 51%),
+    radial-gradient(1px 1px at 80% 15%, rgba(255,158,203,.5) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 60% 70%, rgba(127,214,232,.5) 50%, transparent 51%),
+    radial-gradient(1px 1px at 30% 85%, rgba(255,216,138,.5) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 90% 55%, rgba(183,156,240,.4) 50%, transparent 51%);
+  background-size: 100% 100%;
+  pointer-events: none; z-index: 0;
+}
+#app > * { position: relative; z-index: 1; }
+
+/* ── Cursor blink ── */
+@keyframes blink { 0%,100% { opacity:1; } 50% { opacity:0; } }
+.cursor::after { content:'✦'; animation: blink 1s step-end infinite; color: var(--lilac); margin-left:2px; }
+
+/* ── nutrical btn-primary fix ── */
+.btn-primary {
+  background: var(--lilac) !important;
+  color: #fff !important;
+  font-family: 'Baloo 2', cursive !important;
+  font-weight: 700 !important;
+  letter-spacing: .04em !important;
+  text-transform: uppercase !important;
+  border: none !important;
+  box-shadow: var(--glow-lilac) !important;
+}
+.btn-primary:hover { box-shadow: 0 0 18px rgba(183,156,240,.7) !important; }
+
+/* ── Botones ── */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 11px 24px;
+  font-family: 'Baloo 2', cursive;
+  font-size: 13px; font-weight: 700; letter-spacing: .03em;
+  text-transform: uppercase; cursor: pointer;
+  border: 2px solid; transition: box-shadow .15s, background .15s, transform .1s;
+  -webkit-tap-highlight-color: transparent; text-decoration: none;
+  background: var(--card); border-radius: 999px;
+}
+.btn:active { transform: scale(.97); }
+.btn-block { width: 100%; }
+
+.btn-cyan   { border-color: var(--cyan);   color: var(--cyan);   }
+.btn-pink   { border-color: var(--pink);   color: var(--pink);   }
+.btn-mint   { border-color: var(--lilac);  color: var(--lilac);  }
+.btn-gold   { border-color: var(--gold);   color: #a87e00; }
+.btn-dim    { border-color: var(--border); color: var(--dim);    }
+
+.btn-cyan:hover { background: rgba(127,214,232,.12); box-shadow: var(--glow-cyan); }
+.btn-pink:hover { background: rgba(255,158,203,.12); box-shadow: var(--glow-pink); }
+.btn-mint:hover { background: rgba(183,156,240,.12); box-shadow: var(--glow-lilac); }
+.btn-gold:hover { background: rgba(255,216,138,.15); box-shadow: var(--glow-gold); }
+.btn-dim:hover  { border-color: var(--dim); color: var(--text); }
+
+/* ── Tarjeta tipo carta mágica — bordes redondeados, esquinas con ancla tierna ── */
+.session-card {
+  background: var(--card);
+  border: 2px solid var(--border);
+  border-radius: 18px;
+  position: relative;
+  padding: 14px; margin-bottom: 12px;
+  box-shadow: 0 3px 10px rgba(183,156,240,.12);
+  transition: box-shadow .2s, transform .15s;
+}
+.session-card::before, .session-card::after { content: none; }
+.session-card__title::before { content: '⚓ '; opacity: .55; }
+
+.session-card__title {
+  font-family: 'Baloo 2', cursive;
+  font-size: 14px; font-weight: 700; color: var(--text);
+  margin-bottom: 10px; letter-spacing: .01em;
+  display: flex; justify-content: space-between; align-items: center;
+}
+
+/* ── Set table ── */
+.set-table { width: 100%; border-collapse: collapse; font-size: 12px; margin: 8px 0; }
+.set-table th {
+  text-align: left; padding: 6px 5px;
+  font-size: 9px; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--dim); border-bottom: 2px solid var(--border);
+  font-family: 'Baloo 2', cursive;
+}
+.set-table td { padding: 7px 5px; border-bottom: 1px solid rgba(58,42,68,.06); color: var(--text); }
+.set-table tr:last-child td { border-bottom: none; }
+.set-row--work td  { color: #a87e00; font-weight: 700; }
+.set-row--pr td    { color: var(--pink); font-weight: 800; font-size: 13px; text-shadow: var(--glow-pink); }
+.set-row--done td  { opacity: .4; text-decoration: line-through; }
+
+/* ── Progress bar ── */
+.progress-bar { height: 8px; background: var(--card2); overflow: hidden; margin: 6px 0; border-radius: 999px; }
+.progress-bar__fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--pink), var(--lilac));
+  box-shadow: var(--glow-pink); transition: width .4s ease;
+}
+.progress-bar__fill--success {
+  background: linear-gradient(90deg, var(--cyan), var(--lilac));
+  box-shadow: var(--glow-cyan);
+}
+
+/* ── Rest timer overlay ── */
+.timer-overlay {
+  position: fixed; inset: 0; z-index: 500;
+  background: rgba(253,246,251,.97);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 20px;
+}
+.timer-overlay::before {
+  content: '';
+  position: absolute; inset: 0;
+  background-image: radial-gradient(1.5px 1.5px at 50% 50%, rgba(183,156,240,.15) 50%, transparent 51%);
+  background-size: 40px 40px;
+}
+.timer-overlay__time {
+  font-family: 'Baloo 2', cursive;
+  font-size: clamp(64px, 18vw, 88px);
+  font-weight: 800; letter-spacing: .02em;
+  color: var(--lilac);
+  text-shadow: var(--glow-lilac);
+  position: relative;
+}
+.timer-overlay__label {
+  font-size: 10px; color: var(--dim);
+  letter-spacing: .3em; text-transform: uppercase;
+  font-family: 'JetBrains Mono', monospace;
+}
+.timer-overlay__skip {
+  margin-top: 20px; padding: 12px 36px;
+  border: 2px solid var(--border);
+  background: var(--card); color: var(--dim);
+  font-family: 'Baloo 2', cursive;
+  font-size: 12px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
+  cursor: pointer; transition: border-color .15s, color .15s; border-radius: 999px;
+}
+.timer-overlay__skip:hover { border-color: var(--cyan); color: var(--cyan); }
+
+/* ── Bottom navigation ── */
+.bottom-nav {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  display: flex;
+  background: rgba(255,255,255,.95);
+  backdrop-filter: blur(20px);
+  border-top: 2px solid var(--lilac);
+  box-shadow: 0 -1px 16px rgba(183,156,240,.15);
+  padding-bottom: var(--safe-bottom); z-index: 200;
+}
+.bottom-nav__item {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  padding: 10px 4px 8px;
+  font-family: 'Baloo 2', cursive;
+  font-size: 9px; font-weight: 700; letter-spacing: .05em;
+  color: var(--dim); text-decoration: none;
+  border: none; background: none; cursor: pointer;
+  text-transform: uppercase; transition: color .15s, text-shadow .15s;
+}
+.bottom-nav__item .icon { font-size: 18px; margin-bottom: 3px; }
+.bottom-nav__item--active { color: var(--lilac); text-shadow: var(--glow-lilac); }
+
+/* ── Badges ── */
+.badge-kine {
+  display: inline-block; padding: 3px 10px;
+  background: rgba(127,214,232,.15); border: 1.5px solid var(--cyan);
+  color: #2e828f; font-size: 9px; font-weight: 700; letter-spacing: .08em;
+  font-family: 'Baloo 2', cursive;
+  border-radius: 999px;
+}
+.pill-obligatorio {
+  display: inline-block; padding: 2px 8px;
+  background: rgba(255,158,203,.15); border: 1.5px solid var(--pink);
+  color: #c94f85; font-size: 9px; font-weight: 700; letter-spacing: .04em;
+  border-radius: 999px;
+}
+.pill-new {
+  background: var(--lilac); color: #fff;
+  font-size: 9px; font-weight: 800; padding: 2px 7px;
+  font-family: 'Baloo 2', cursive; letter-spacing: .04em;
+  border-radius: 999px;
+}
+
+/* ── Phase banner ── */
+.phase-banner {
+  padding: 10px 14px;
+  font-family: 'Baloo 2', cursive;
+  font-size: 11px; font-weight: 700; letter-spacing: .04em;
+  margin: 16px 0 10px;
+  position: relative;
+  border-radius: 14px;
+}
+.phase-banner::before, .phase-banner::after { content: none; }
+
+.phase-banner--pink   { background: rgba(255,158,203,.14); border: 2px solid var(--pink);  color: #c94f85; }
+.phase-banner--mint,
+.phase-banner--lilac  { background: rgba(183,156,240,.14); border: 2px solid var(--lilac); color: #6a4fa8; }
+.phase-banner--gold   { background: rgba(255,216,138,.18); border: 2px solid var(--gold);  color: #a87e00; }
+.phase-banner--cyan   { background: rgba(127,214,232,.16); border: 2px solid var(--cyan);  color: #2e828f; }
+.phase-banner--purple { background: rgba(183,156,240,.14); border: 2px solid var(--lilac); color: #6a4fa8; }
+.phase-banner--orange { background: rgba(255,158,203,.14); border: 2px solid var(--pink);  color: #c94f85; }
+
+/* ── Tip box ── */
+.tip-box {
+  background: var(--card); border: 2px solid var(--gold);
+  box-shadow: 0 3px 10px rgba(255,216,138,.15);
+  padding: 13px 14px; margin: 10px 0; position: relative; border-radius: 16px;
+}
+.tip-box__title { font-family: 'Baloo 2', cursive; font-size: 11px; font-weight: 700; color: #a87e00; margin-bottom: 6px; letter-spacing: .04em; }
+.tip-box ul { padding-left: 16px; }
+.tip-box li { font-size: 12px; color: var(--text); margin-bottom: 5px; line-height: 1.5; }
+
+/* ── Advertencia ── */
+.eva-warning {
+  background: rgba(255,158,203,.14); border: 2px solid var(--pink);
+  box-shadow: 0 3px 10px rgba(255,158,203,.12);
+  padding: 10px 14px; font-size: 12px; font-weight: 700;
+  color: #c94f85; margin-bottom: 12px; letter-spacing: .02em; border-radius: 14px;
+}
+
+/* ── Section divider ── */
+.section-divider {
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--lilac), transparent);
+  opacity: .35; margin: 16px 0;
+}
+
+/* ── nutrical topnav override ── */
+#topnav {
+  background: var(--card) !important;
+  border-bottom: 2px solid var(--border) !important;
+}
+
+/* ── nutrical results-block override ── */
+.results-block {
+  background: var(--card) !important;
+  border: 2px solid var(--cyan) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 3px 10px rgba(127,214,232,.15) !important;
+}
+.results-block h3 { color: #2e828f !important; }
+
+/* ── nutrical card override ── */
+.card {
+  background: var(--card) !important;
+  border: 2px solid var(--border) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 3px 10px rgba(183,156,240,.1) !important;
+  position: relative;
+}
+.card::before, .card::after { content: none; }
+
+/* ── nutrical input override ── */
+input, select, textarea {
+  background: var(--card2) !important;
+  border: 2px solid var(--border) !important;
+  color: var(--text) !important;
+  font-family: 'Comfortaa', sans-serif !important;
+  border-radius: 12px !important;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: var(--lilac) !important;
+  box-shadow: 0 0 0 3px rgba(183,156,240,.2) !important;
+  outline: none !important;
+}
+
+/* ── Layout ── */
+body { padding-bottom: calc(64px + var(--safe-bottom)); }
+
+.week-nav-btn {
+  background: var(--card); border: 2px solid var(--border); color: var(--dim);
+  border-radius: 999px; width: 26px; height: 26px; font-size: 16px; line-height: 1;
+  cursor: pointer; vertical-align: middle;
+}
+.week-nav-btn:disabled { opacity: .3; cursor: default; }
+.week-nav-btn:not(:disabled):hover { border-color: var(--cyan); color: #2e828f; }
