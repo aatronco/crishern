@@ -1,5 +1,5 @@
 // sw.js
-const CACHE = 'crishern-v1';
+const CACHE = 'crishern-v2';
 const PRECACHE = [
   './',
   './index.html',
