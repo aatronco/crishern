@@ -24,13 +24,15 @@ Muerto / Militar. Cada día tiene:
   peso que elijas en el calentamiento.
 - **T3**: accesorios de alto volumen (MRS), bajando de reps cada semana.
 
-A diferencia de Brute, esta app **no calcula ni redondea kg**: muestra el %
-o el rango de reps objetivo y tú anotas el peso real cada semana. Es la
-única forma fiel de seguir J&T, porque el Bloque 1 y el Bloque 2 dependen de
-un número (tu 1RM real) que no existe hasta que lo levantas — no se puede
-precalcular de antemano. Declara tu Training Max de cada movimiento (doble
-cómodo de un día normal, no tu máximo absoluto) antes de empezar cada
-bloque.
+Igual que Brute, la app calcula y redondea el kg de T1 y T2a a partir de un
+Training Max declarado por movimiento (`js/workout-data.js`, objeto `TM`) —
+100% literal y estático, sin fórmula en runtime. Los accesorios T2b/T2c/T3
+quedan en "Tú decides (MRS)" porque así los marca la propia planilla oficial
+(con "?" en la columna de peso, no es una simplificación propia). Las
+semanas 6 y 12 son test real de 1RM sin peso prescrito, también fiel a la
+planilla. Sentadilla/Banca/Peso Muerto usan el 2RM ya declarado en el
+cuestionario original; Sentadilla Frontal y Militar no tenían dato propio y
+quedan estimados (marcados en el código) a validar en las primeras semanas.
 
 Distribución (fiel a los 4 días de la planilla oficial):
 - Día 1: T1 Sentadilla.
@@ -42,6 +44,24 @@ Distribución (fiel a los 4 días de la planilla oficial):
   "Sling Shot Bench" como segundo T1 de este día; sin ese implemento, se
   reemplaza por Press Banca con Pausa — mismo criterio que ya usa Brute en
   su propio día 4.
+
+## Registro de resultados
+
+Igual que Brute: desde cualquier sesión, cada serie de T1 y cada ejercicio de
+T2/T3/accesorios trae un campo de kg y reps reales con un botón "Guardar".
+Esos registros se guardan solo en `localStorage` del navegador/dispositivo —
+nunca se suben a ningún servidor ni al repositorio.
+
+La página `#/registro` (enlace "📒 Registro de resultados" en el dashboard)
+lista todo lo guardado y permite:
+- **Exportar** un archivo `.json` con todo el registro (para respaldar o
+  mover a otro dispositivo).
+- **Importar** un archivo exportado — se suma a lo que ya haya en el
+  dispositivo, sin duplicar entradas.
+- **Borrar todo** el registro local (con confirmación).
+
+Como no hay backend, cambiar de teléfono o borrar datos del navegador
+implica exportar antes e importar después en el nuevo dispositivo.
 
 ## Ejecutar y comprobar
 

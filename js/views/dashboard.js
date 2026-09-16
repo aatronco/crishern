@@ -1,6 +1,7 @@
 // js/views/dashboard.js
 import { SESSIONS, PROGRAM_WEEKS, APP_NAME, APP_ICON, APP_TAGLINE } from '../workout-data.js';
 import { clampWeek } from '../load-calculator.js';
+import { PROGRAM_ORIGIN, WEEK_PLAN, STRENGTH_RULE, MEASUREMENT_RULE } from '../strength-plan.js';
 
 export function renderDashboard(weekParam) {
   const week = clampWeek(weekParam);
@@ -13,7 +14,13 @@ export function renderDashboard(weekParam) {
         <p class="hero-sub">${APP_TAGLINE}</p>
       </div>
 
-      <div style="display:flex;gap:6px;margin-bottom:18px;">
+      <div class="program-note">
+        <span class="system-label">${WEEK_PLAN[week].label.toUpperCase()}</span>
+        <p>${WEEK_PLAN[week].note}</p>
+        <details><summary>Referencia del bloque</summary><p>${PROGRAM_ORIGIN}</p><p>${STRENGTH_RULE}</p><p>${MEASUREMENT_RULE}</p></details>
+      </div>
+
+      <div style="display:flex;gap:6px;margin:16px 0 18px;">
         ${Array.from({ length: PROGRAM_WEEKS }, (_, i) => i + 1).map(w => `
           <a href="#/dashboard/${w}"
             style="flex:1;text-align:center;padding:10px 0;border-radius:10px;
@@ -33,6 +40,10 @@ export function renderDashboard(weekParam) {
           </a>
         `).join('')}
       </div>
+
+      <p style="text-align:center;margin-top:14px;">
+        <a href="#/registro" style="color:var(--lilac);font-weight:700;text-decoration:none;">📒 Registro de resultados (exportar / importar)</a>
+      </p>
     </div>
   `;
 }

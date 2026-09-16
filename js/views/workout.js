@@ -2,6 +2,8 @@
 import { SESSIONS } from '../workout-data.js';
 import { getT1Sets, clampWeek } from '../load-calculator.js';
 import { createTimer } from '../timer.js';
+import { WEEK_PLAN, PROGRAM_ORIGIN, STRENGTH_RULE, MEASUREMENT_RULE } from '../strength-plan.js';
+import { logSet } from '../log-storage.js';
 
 let activeTimer = null;
 
@@ -17,6 +19,13 @@ export function renderWorkout(sessionKey, weekParam) {
 
       <div class="phase-banner phase-banner--${session.color}">
         ◈ ${session.name} — Semana ${week}
+      </div>
+
+      <div class="program-note">
+        <span class="system-label">${WEEK_PLAN[week].label}</span>
+        <p>${WEEK_PLAN[week].note}</p>
+        <p>Pesos y repeticiones son objetivos: avanza solo si completaste el paso anterior con el margen indicado. Si no, repítelo.</p>
+        <details><summary>Referencia del programa y registro</summary><p>${PROGRAM_ORIGIN}</p><p>${STRENGTH_RULE}</p><p>${MEASUREMENT_RULE}</p></details>
       </div>
 
       ${renderSession(sessionKey, session, week)}
@@ -39,54 +48,52 @@ export function renderWorkout(sessionKey, weekParam) {
 }
 
 function renderSession(sessionKey, session, week) {
-  const t1Blocks = (session.T1 || []).map((t1, i) => `
+  const t1Blocks = (session.T1 || []).map((t1, i) => {
+    const exerciseName = t1.exerciseByWeek?.[week] || t1.exercise;
+    return `
     <h2 class="sh" style="margin-top:18px;">
-      <span class="dot" style="background:var(--${session.color})"></span>T1 — ${t1.exercise}
+      <span class="dot" style="background:var(--${session.color})"></span>T1 — ${exerciseName}
     </h2>
     ${t1.note ? `<div style="font-size:12px;color:var(--note);margin-bottom:8px;">${t1.note}</div>` : ''}
-    ${renderT1Table(getT1Sets(sessionKey, week, i))}
-  `).join('');
+    ${renderT1Table(getT1Sets(sessionKey, week, i), sessionKey, week, exerciseName)}
+    ${renderProgression(t1.byWeek, week)}
+  `;
+  }).join('');
 
   return `
     ${t1Blocks}
 
     ${session.T2?.length ? `
       <h2 class="sh" style="margin-top:18px;">
-        <span class="dot" style="background:var(--mint)"></span>T2 — Hipertrofia
+        <span class="dot" style="background:var(--role-t2)"></span>T2 — Asistencia primaria
       </h2>
-      ${renderT2List(session.T2, week)}
+      ${renderT2List(session.T2, week, sessionKey, 'T2')}
     ` : ''}
-
-    ${session.kineBlock ? renderKineBlock(session.kineBlock) : ''}
 
     ${session.T3?.length ? `
       <h2 class="sh" style="margin-top:18px;">
-        <span class="dot" style="background:var(--gold)"></span>T3 — Accesorios
+        <span class="dot" style="background:var(--role-t3)"></span>T3 — Asistencia secundaria
       </h2>
-      ${renderT2List(session.T3, week)}
+      ${renderT2List(session.T3, week, sessionKey, 'T3')}
     ` : ''}
 
     ${session.accessories?.length ? `
       <h2 class="sh" style="margin-top:18px;">
-        <span class="dot" style="background:var(--orange)"></span>Accesorios
+        <span class="dot" style="background:var(--role-t3)"></span>Accesorios
       </h2>
-      ${renderAccessoryList(session.accessories, week)}
+      ${renderT2List(session.accessories, week, sessionKey, 'accessory')}
     ` : ''}
-
-    ${session.chipper ? renderChipperBlock(session.chipper) : ''}
-
-    ${session.cycling ? renderCyclingBlock(session.cycling) : ''}
 
     ${session.cardio?.length ? `
       <h2 class="sh" style="margin-top:18px;">
-        <span class="dot" style="background:var(--gold)"></span>Cardio
+        <span class="dot" style="background:var(--role-cardio)"></span>Cardio
       </h2>
       ${renderCardioList(session.cardio)}
     ` : ''}
   `;
 }
 
-export function bindWorkout(sessionKey) {
+export function bindWorkout(sessionKey, weekParam) {
   const backBtn = document.querySelector('[data-back]');
   backBtn?.addEventListener('click', () => {
     location.hash = `#/dashboard/${backBtn.dataset.back}`;
@@ -99,6 +106,30 @@ export function bindWorkout(sessionKey) {
 
   if (activeTimer) { activeTimer.stop(); activeTimer = null; }
 
+  document.querySelectorAll('.btn-log-set').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const row = btn.closest('tr') || btn.closest('.log-row');
+      if (!row) return;
+      const kgInput = row.querySelector('.log-input--kg');
+      const repsInput = row.querySelector('.log-input--reps');
+      const kg = kgInput?.value !== '' && kgInput?.value !== undefined ? Number(kgInput.value) : undefined;
+      const reps = repsInput?.value !== '' && repsInput?.value !== undefined ? Number(repsInput.value) : undefined;
+      if (kg === undefined && reps === undefined) return;
+      logSet({
+        sessionKey: btn.dataset.logSession,
+        week: Number(btn.dataset.logWeek),
+        tier: btn.dataset.logTier,
+        exercise: btn.dataset.logExercise,
+        setLabel: btn.dataset.logLabel || '',
+        kg, reps,
+      });
+      const original = btn.textContent;
+      btn.textContent = '✓';
+      btn.disabled = true;
+      setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 1200);
+    });
+  });
+
   document.querySelectorAll('[data-rest]').forEach(btn => {
     btn.addEventListener('click', () => {
       const secs = parseInt(btn.dataset.rest, 10);
@@ -108,26 +139,6 @@ export function bindWorkout(sessionKey) {
 
   const skipBtn = document.getElementById('btn-skip-timer');
   if (skipBtn) skipBtn.addEventListener('click', () => { if (activeTimer) activeTimer.skip(); });
-
-  document.querySelectorAll('[data-cycling-tab]').forEach(tab => {
-    tab.addEventListener('click', () => {
-      const idx = tab.dataset.cyclingTab;
-      document.querySelectorAll('[data-cycling-tab]').forEach(t => t.classList.toggle('btn-dim', t.dataset.cyclingTab !== idx));
-      document.querySelectorAll('[data-cycling-panel]').forEach(p => {
-        p.style.display = p.dataset.cyclingPanel === idx ? '' : 'none';
-      });
-    });
-  });
-
-  document.querySelectorAll('[data-chipper-tab]').forEach(tab => {
-    tab.addEventListener('click', () => {
-      const idx = tab.dataset.chipperTab;
-      document.querySelectorAll('[data-chipper-tab]').forEach(t => t.classList.toggle('btn-dim', t.dataset.chipperTab !== idx));
-      document.querySelectorAll('[data-chipper-panel]').forEach(p => {
-        p.style.display = p.dataset.chipperPanel === idx ? '' : 'none';
-      });
-    });
-  });
 }
 
 // ── Render helpers ──────────────────────────────────────────────────────────
@@ -138,11 +149,19 @@ function restButton(rest) {
     : '';
 }
 
-function renderT1Table(sets) {
+function logCell(sessionKey, week, tier, exercise, label) {
+  return `
+    <td><input type="number" step="0.5" inputmode="decimal" class="log-input log-input--kg" placeholder="kg" style="width:52px;" aria-label="Kg real"></td>
+    <td><input type="number" inputmode="numeric" class="log-input log-input--reps" placeholder="reps" style="width:42px;" aria-label="Reps reales"></td>
+    <td><button class="btn-log-set" data-log-session="${sessionKey}" data-log-week="${week}" data-log-tier="${tier}" data-log-exercise="${exercise}" data-log-label="${label}" style="background:var(--accent);border:none;border-radius:8px;padding:4px 8px;color:#fff;font-size:11px;cursor:pointer;">💾</button></td>
+  `;
+}
+
+function renderT1Table(sets, sessionKey, week, exerciseName) {
   if (!sets.length) return `<p style="color:var(--dim);font-size:13px;padding:8px 0;">Sin sets para esta semana.</p>`;
   return `
     <table class="set-table">
-      <thead><tr><th>Serie</th><th>Reps</th><th>Kg</th><th>Desc</th><th></th></tr></thead>
+      <thead><tr><th>Serie</th><th>Reps</th><th>Kg objetivo</th><th>Desc</th><th></th><th>Kg real</th><th>Reps</th><th></th></tr></thead>
       <tbody>
         ${sets.map(s => `
           <tr class="${s.type === 'work' ? 'set-row--work' : ''}">
@@ -151,15 +170,16 @@ function renderT1Table(sets) {
             <td>${typeof s.kg === 'number' ? s.kg + ' kg' : s.kg}</td>
             <td>${s.rest ? s.rest + '"' : '—'}</td>
             <td>${s.rest > 0 ? `<button data-rest="${s.rest}" style="background:var(--accent);border:none;border-radius:8px;padding:4px 10px;color:#fff;font-size:11px;cursor:pointer;">▶</button>` : ''}</td>
+            ${logCell(sessionKey, week, 'T1', exerciseName, s.label)}
           </tr>
-          ${s.note ? `<tr><td colspan="5" style="font-size:11px;color:var(--cyan);padding-bottom:6px;">${s.note}</td></tr>` : ''}
+          ${s.note ? `<tr><td colspan="8" style="font-size:11px;color:var(--role-comment);padding-bottom:6px;">${s.note}</td></tr>` : ''}
         `).join('')}
       </tbody>
     </table>
   `;
 }
 
-function renderT2List(exercises, week) {
+function renderT2List(exercises, week, sessionKey, tier) {
   return exercises.map(e => {
     const weekly = e.byWeek?.[week];
     const isWaveT2 = weekly && typeof weekly === 'object';
@@ -175,96 +195,25 @@ function renderT2List(exercises, week) {
           ${e.rest ? `· ${e.rest}"` : ''}
           ${restButton(e.rest)}
         </div>
-        ${comment ? `<div style="font-size:11px;color:var(--cyan);margin-top:5px;">${comment}</div>` : ''}
+        ${comment ? `<div style="font-size:11px;color:var(--role-comment);margin-top:5px;">${comment}</div>` : ''}
         ${e.note ? `<div style="font-size:12px;color:var(--note);margin-top:5px;">${e.note}</div>` : ''}
+        ${e.byWeek ? renderProgression(e.byWeek, week) : ''}
+        <div class="log-row" style="display:flex;gap:6px;align-items:center;margin-top:8px;">
+          <input type="number" step="0.5" inputmode="decimal" class="log-input log-input--kg" placeholder="kg" style="width:56px;" aria-label="Kg real">
+          <input type="number" inputmode="numeric" class="log-input log-input--reps" placeholder="reps" style="width:48px;" aria-label="Reps reales">
+          <button class="btn-log-set" data-log-session="${sessionKey}" data-log-week="${week}" data-log-tier="${tier}" data-log-exercise="${e.name}" data-log-label="" style="background:var(--accent);border:none;border-radius:8px;padding:5px 10px;color:#fff;font-size:11px;cursor:pointer;">💾 Guardar</button>
+        </div>
       </div>
     `;
   }).join('');
 }
 
-function renderAccessoryList(accessories, week) {
-  return accessories.map(a => {
-    const kg = a.byWeek?.[week];
-    const kgLabel = kg === undefined ? '' : (typeof kg === 'number' ? `${kg} kg · ` : `${kg} · `);
-    const unit = a.repUnit || '';
-    return `
-      <div class="session-card">
-        <div class="session-card__title">${a.name}</div>
-        <div class="ex-meta" style="font-size:13px;color:var(--dim);">
-          <b style="color:var(--text)">${kgLabel}${a.sets}×${a.repRange[0]}-${a.repRange[1]}${unit}</b>
-          ${a.rest ? `· ${a.rest}"` : ''}
-          ${restButton(a.rest)}
-        </div>
-        ${a.note ? `<div style="font-size:12px;color:var(--note);margin-top:5px;">${a.note}</div>` : ''}
-      </div>
-    `;
-  }).join('');
-}
-
-function renderCyclingBlock(cycling) {
-  return `
-    <div style="margin:16px 0 8px;font-size:12px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:1px;">
-      ${cycling.label}
-    </div>
-    <div style="font-size:12px;color:var(--dim);margin-bottom:10px;">${cycling.note}</div>
-    <div class="cycling-tabs" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
-      ${cycling.options.map((o, i) => `
-        <button class="btn ${i === 0 ? '' : 'btn-dim'}" data-cycling-tab="${i}"
-          style="padding:8px 14px;font-size:13px;">${o.name}</button>
-      `).join('')}
-    </div>
-    ${cycling.options.map((o, i) => `
-      <div class="cycling-panel" data-cycling-panel="${i}" style="${i === 0 ? '' : 'display:none;'}">
-        <div class="session-card">
-          <div class="session-card__title">${o.rounds} rondas for time</div>
-          ${o.movements.map(m => `
-            <div class="ex-meta" style="font-size:13px;color:var(--dim);margin-top:4px;">
-              <b style="color:var(--text)">${m.reps}${m.repUnit || ''} ${m.name}</b>
-              ${m.kg ? ` @ ${m.kg} kg` : ''}
-            </div>
-            ${m.note ? `<div style="font-size:11px;color:var(--note);margin:2px 0 4px;">${m.note}</div>` : ''}
-          `).join('')}
-        </div>
-      </div>
-    `).join('')}
-  `;
-}
-
-function renderChipperSteps(steps) {
-  return steps.map(s => s.burpees ? `
-    <div class="ex-meta" style="font-size:13px;color:var(--orange);margin-top:6px;font-weight:700;">
-      ${s.burpees} Burpees
-    </div>
-  ` : `
-    <div class="ex-meta" style="font-size:13px;color:var(--dim);margin-top:6px;">
-      <b style="color:var(--text)">${s.reps}${s.repUnit || ''} ${s.name}</b>
-      ${s.kg ? ` @ ${s.kg} kg` : ''}
-    </div>
-    ${s.note ? `<div style="font-size:11px;color:var(--note);margin:2px 0 4px;">${s.note}</div>` : ''}
-  `).join('');
-}
-
-function renderChipperBlock(chipper) {
-  return `
-    <div style="margin:16px 0 8px;font-size:12px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:1px;">
-      ${chipper.label}
-    </div>
-    <div style="font-size:12px;color:var(--dim);margin-bottom:10px;">${chipper.note}</div>
-    <div class="chipper-tabs" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
-      ${chipper.options.map((o, i) => `
-        <button class="btn ${i === 0 ? '' : 'btn-dim'}" data-chipper-tab="${i}"
-          style="padding:8px 14px;font-size:13px;">${o.name}</button>
-      `).join('')}
-    </div>
-    ${chipper.options.map((o, i) => `
-      <div class="chipper-panel" data-chipper-panel="${i}" style="${i === 0 ? '' : 'display:none;'}">
-        <div class="session-card">
-          ${o.note ? `<div style="font-size:11px;color:var(--note);margin-bottom:6px;">${o.note}</div>` : ''}
-          ${renderChipperSteps(o.steps)}
-        </div>
-      </div>
-    `).join('')}
-  `;
+function renderProgression(byWeek, currentWeek) {
+  const rows = Object.entries(byWeek).flatMap(([week, data]) => {
+    const work = data.work || [{ label: data.setsReps, kg: data.kg }];
+    return work.map(set => `<tr${Number(week) === currentWeek ? ' class="set-row--work"' : ''}><td>${week}</td><td>${set.label}</td><td>${typeof set.kg === 'number' ? `${set.kg} kg` : set.kg}</td></tr>`);
+  });
+  return `<details class="progression-table"><summary>Ver progresión de las 12 semanas</summary><p class="block-note">Objetivos desde la base declarada. Si un paso cuesta más de lo indicado, repítelo antes de avanzar.</p><table class="set-table"><thead><tr><th>Semana</th><th>Series × reps</th><th>Carga objetivo</th></tr></thead><tbody>${rows.join('')}</tbody></table></details>`;
 }
 
 function renderCardioList(items) {
@@ -275,25 +224,6 @@ function renderCardioList(items) {
       ${c.note ? `<div style="font-size:12px;color:var(--note);margin-top:5px;">${c.note}</div>` : ''}
     </div>
   `).join('');
-}
-
-function renderKineBlock(bloque) {
-  return `
-    <div style="margin:16px 0 8px;font-size:12px;font-weight:700;color:var(--cyan);text-transform:uppercase;letter-spacing:1px;">
-      ${bloque.label}
-    </div>
-    <div style="font-size:12px;color:var(--dim);margin-bottom:8px;">${bloque.note}</div>
-    ${bloque.exercises.map(e => `
-      <div class="session-card">
-        <div class="session-card__title">${e.name}</div>
-        <div class="ex-meta" style="font-size:13px;color:var(--dim);">
-          <b style="color:var(--text)">${e.load}</b> · ${e.setsReps}
-          ${restButton(e.rest)}
-        </div>
-        ${e.note ? `<div style="font-size:12px;color:var(--note);margin-top:5px;">${e.note}</div>` : ''}
-      </div>
-    `).join('')}
-  `;
 }
 
 // ── Timer ───────────────────────────────────────────────────────────────────

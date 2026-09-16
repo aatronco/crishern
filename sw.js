@@ -1,5 +1,5 @@
 // sw.js
-const CACHE = 'crishern-v2';
+const CACHE = 'crishern-v3';
 const PRECACHE = [
   './',
   './index.html',
@@ -8,11 +8,14 @@ const PRECACHE = [
   './css/print.css',
   './js/router.js',
   './js/workout-data.js',
+  './js/strength-plan.js',
   './js/load-calculator.js',
+  './js/log-storage.js',
   './js/timer.js',
   './js/audio-engine.js',
   './js/views/dashboard.js',
   './js/views/workout.js',
+  './js/views/log.js',
 ];
 
 self.addEventListener('install', e => {

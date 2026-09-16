@@ -17,5 +17,5 @@ export function getT1Sets(sessionKey, week, t1Index = 0) {
 
 export function getAccessoryWeight(accessory, week) {
   const kg = accessory.byWeek?.[week];
-  return kg === undefined ? undefined : kg;
+  return kg && typeof kg === 'object' ? kg.kg : kg;
 }
