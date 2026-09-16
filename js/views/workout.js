@@ -61,9 +61,9 @@ function renderSession(sessionKey, session, week) {
 
     ${session.T3?.length ? `
       <h2 class="sh" style="margin-top:18px;">
-        <span class="dot" style="background:var(--orange)"></span>Accesorios obligatorios
+        <span class="dot" style="background:var(--gold)"></span>T3 — Accesorios
       </h2>
-      ${renderFixedList(session.T3)}
+      ${renderT2List(session.T3, week)}
     ` : ''}
 
     ${session.accessories?.length ? `
@@ -180,23 +180,6 @@ function renderT2List(exercises, week) {
       </div>
     `;
   }).join('');
-}
-
-function renderFixedList(exercises) {
-  return exercises.map(e => `
-    <div class="session-card">
-      <div class="session-card__title">
-        ${e.name}
-        ${e.obligatorio ? '<span class="pill-obligatorio">OBLIGATORIO</span>' : ''}
-      </div>
-      <div class="ex-meta" style="font-size:13px;color:var(--dim);">
-        <b style="color:var(--text)">${e.setsReps}</b>
-        ${e.rest ? `· ${e.rest}"` : ''}
-        ${restButton(e.rest)}
-      </div>
-      ${e.note ? `<div style="font-size:12px;color:var(--note);margin-top:5px;">${e.note}</div>` : ''}
-    </div>
-  `).join('');
 }
 
 function renderAccessoryList(accessories, week) {

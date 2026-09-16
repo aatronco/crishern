@@ -1,137 +1,299 @@
 // js/workout-data.js
-// Full Body x3 — 6 semanas, sin fases. Generado una sola vez a partir del
-// cuestionario de Cristobal (ver docs/superpowers/specs/2026-09-02-crishern-adonain-design.md
-// en el repo de Brute). Objetivo único: Hipertrofia — a 3 días/semana, Full
-// Body le gana a un split Piernas/Tirón/Empuje porque cada músculo se
-// estimula 2-3 veces por semana en vez de 1 sola (frecuencia es de las
-// variables con más soporte en la literatura de hipertrofia). Cada día rota
-// cuál SBD es el T1 principal. Press Banca (PR 60 kg, muy por debajo de
-// Sentadilla/Peso Muerto en 140 kg) recibe volumen extra de empuje en los
-// otros dos días por ser el punto débil declarado.
+// J&T 2.0 (Jacked & Tan, método GZCL) — planilla oficial "GZCL Free Compendium",
+// hoja "J&T2.0". Reemplaza el bloque anterior de Full Body × 3 (6 semanas).
+// Referencia del cuestionario original de Cristobal: docs/superpowers/specs/
+// 2026-09-02-crishern-adonain-design.md en el repo de Brute.
+//
+// Estructura fiel a la planilla oficial: 4 días/semana, 12 semanas en 2
+// mesociclos de 6 (Bloque 1 semanas 1-6, Bloque 2 semanas 7-12).
+//   T1 — el patrón pesado del día. Bloque 1: series ascendentes de % de tu
+//        Training Max (TM) declarado, terminando en AMRAP; semana 6 es test
+//        real de 1RM. Bloque 2: densidad alta (85-90%) sobre el 1RM que
+//        encuentres en la semana 6; semana 12 vuelve a testear el 1RM — ese
+//        resultado es tu nuevo TM para el próximo ciclo.
+//   T2 — variante cercana al T1 del día (T2a, % de la TM del movimiento
+//        relacionado) más dos accesorios de patrón MRS (T2b/T2c, series a
+//        reps máximas con el peso que tú elijas en el calentamiento).
+//   T3 — accesorios de alto volumen (MRS), reps bajando cada semana.
+//
+// Igual que el resto de Crishern, la app NO calcula ni redondea kg: muestra
+// el % o el rango de reps objetivo, y tú anotas el peso real cada semana a
+// partir de tu propio TM/1RM — así lo pidió el dueño de la app para este
+// programa en particular, porque el Bloque 1 y el Bloque 2 dependen de un
+// número (tu 1RM real) que no existe hasta que lo levantas.
+//
+// Un solo cambio de equipo respecto de la planilla oficial: el día 4 en la
+// planilla usa "Sling Shot Bench" como segundo T1 (sin Training Max propio,
+// se testea en vivo cada semana). Sin ese implemento, se reemplaza por Press
+// Banca con Pausa — mismo criterio que ya usa Brute en su propio día 4.
 
-export const PROGRAM_WEEKS = 6;
+export const PROGRAM_WEEKS = 12;
 
 export const APP_NAME = 'Crishern';
 export const APP_ICON = '🏴‍☠️';
-export const APP_TAGLINE = 'Full Body × 3 — rotando Sentadilla / Banca / Peso Muerto';
+export const APP_TAGLINE = 'J&T 2.0 (GZCL) — 4 días · 2 bloques de 6 semanas';
 
-// ── T1 — olas por levantamiento (idéntico esquema de Brute) ────────────────
-const T1_SCHEME = [
-  { week: 1, label: '2×4',  reps: 4, amrap: true,  rest: 180, comment: 'Volumen moderado con techo alto — el AMRAP mide si la base 2RM sigue siendo válida.' },
-  { week: 2, label: '4×2',  reps: 2, amrap: false, rest: 180, comment: 'Sube intensidad, baja reps, sin AMRAP — consolida técnica bajo carga alta sin arriesgar fallo.' },
-  { week: 3, label: '3×3',  reps: 3, amrap: false, rest: 180, comment: 'Retroceso leve de intensidad — acumula volumen técnico antes del bloque de picos.' },
-  { week: 4, label: '8×1',  reps: 1, amrap: true,  rest: 240, comment: 'Mayor densidad de series pesadas — acondiciona el sistema nervioso para los máximos.' },
-  { week: 5, label: '2×2',  reps: 2, amrap: true,  rest: 240, comment: 'Mini-descarga de volumen manteniendo intensidad — último test antes del máximo.' },
-  { week: 6, label: '1×1',  reps: 1, amrap: false, rest: 300, comment: 'Single de cierre del bloque — referencia para la base 2RM del siguiente ciclo.' },
+// ── T1 — patrón pesado del día ──────────────────────────────────────────────
+const T1_BLOCK1 = [
+  { week: 1, reps: 6, sets: 3 },
+  { week: 2, reps: 5, sets: 3 },
+  { week: 3, reps: 4, sets: 3 },
+  { week: 4, reps: 3, sets: 3 },
+  { week: 5, reps: 2, sets: 4 },
 ];
 
-const ceil5 = kg => Math.ceil(kg / 5) * 5;
+// Idéntico para los 4 días — así lo trae la planilla oficial.
+const T1_BLOCK2 = [
+  { week: 7, pct: 0.85, reps: 3, sets: 5 },
+  { week: 8, pct: 0.85, reps: 2, sets: 5 },
+  { week: 9, pct: 0.85, reps: 1, sets: 5 },
+  { week: 10, pct: 0.90, reps: 2, sets: 3 },
+  { week: 11, pct: 0.90, reps: 1, sets: 3 },
+];
 
-function barbellByWeek(base2RM, kgByWeek, { warmupReps = [8, 5, 2], warmupRest = [90, 90, 120] } = {}) {
-  const warmupKg = [0.5, 0.7, 0.85].map(pct => ceil5(base2RM * pct));
+function t1TestSet(movement, label) {
+  return {
+    warmup: [],
+    work: [{
+      label: '1RM', reps: 1, kg: 'Tú decides — test real', rest: 300, type: 'work',
+      note: `${label} sube de peso en el calentamiento y busca tu 1RM real de ${movement} con buena técnica.`,
+    }],
+  };
+}
+
+function t1ByWeek(movementBlock1, pctBlock1, movementBlock2 = movementBlock1) {
   const byWeek = {};
-  for (const s of T1_SCHEME) {
-    const kg = kgByWeek[s.week];
-    const warmup = warmupKg.map((kg, i) => ({
-      label: `C${i + 1}`, reps: warmupReps[i], kg, rest: warmupRest[i], type: 'warmup',
-    }));
-    const work = [{ label: s.label, reps: s.reps, kg, rest: s.rest, type: 'work', note: s.comment }];
-    if (s.amrap) work.push({ label: 'AMRAP', reps: `${s.reps}+`, kg, rest: 0, type: 'work', note: 'Serie extra a máximas reps con técnica sólida — no al fallo.' });
-    byWeek[s.week] = { warmup, work };
-  }
+  T1_BLOCK1.forEach(({ week, reps, sets }) => {
+    const pctTxt = `${Math.round(pctBlock1[week] * 100)}%`;
+    byWeek[week] = {
+      warmup: [],
+      work: Array.from({ length: sets }, (_, i) => {
+        const isAmrap = i === sets - 1;
+        return {
+          label: `${reps}${isAmrap ? '+' : ''}`, reps, kg: `${pctTxt} TM`, rest: 180, type: 'work',
+          note: isAmrap
+            ? `AMRAP a ${pctTxt} de tu Training Max de ${movementBlock1}. Deja 1-2 reps en el tanque, nunca al fallo real.`
+            : undefined,
+        };
+      }),
+    };
+  });
+  byWeek[6] = t1TestSet(movementBlock1, 'Semana de test del Bloque 1:');
+  T1_BLOCK2.forEach(({ week, pct, reps, sets }) => {
+    const pctTxt = `${Math.round(pct * 100)}%`;
+    byWeek[week] = {
+      warmup: [],
+      work: Array.from({ length: sets }, (_, i) => {
+        const isAmrap = i === sets - 1;
+        return {
+          label: `${reps}${isAmrap ? '+' : ''}`, reps, kg: `${pctTxt} de tu 1RM (semana 6)`, rest: 240, type: 'work',
+          note: isAmrap
+            ? `AMRAP a ${pctTxt} del 1RM de ${movementBlock2} que encontraste en la semana 6. Deja 1-2 reps en el tanque.`
+            : undefined,
+        };
+      }),
+    };
+  });
+  byWeek[12] = t1TestSet(movementBlock2, 'Cierre del bloque:');
+  byWeek[12].work[0].note += ' Ese número es tu nuevo Training Max para el próximo ciclo de J&T.';
   return byWeek;
 }
 
-// ── Accesorios — escalón fijo cada 2 semanas, rep-range de Hipertrofia (8-15) ──
-function stepByWeek(w12, w34, w56) {
-  return { 1: w12, 2: w12, 3: w34, 4: w34, 5: w56, 6: w56 };
+// Segundo T1 del día 4 (sustituto de Sling Shot Bench): sin Training Max
+// propio en la planilla — se testea en vivo cada semana, con el esquema de
+// reps exacto de la hoja oficial (incluye el ida y vuelta irregular del
+// Bloque 2: 7RM → 4RM → 2RM → 5RM → 3RM → 1RM).
+const LIVE_TEST_REPS = { 1: 10, 2: 8, 3: 6, 4: 4, 5: 2, 6: 1, 7: 7, 8: 4, 9: 2, 10: 5, 11: 3, 12: 1 };
+
+function liveTestByWeek(movement) {
+  const byWeek = {};
+  Object.entries(LIVE_TEST_REPS).forEach(([week, reps]) => {
+    byWeek[Number(week)] = {
+      warmup: [],
+      work: [{
+        label: `${reps}RM`, reps, kg: 'Tú decides — test en vivo', rest: 240, type: 'work',
+        note: `Sin Training Max de referencia para ${movement}: sube de peso en el calentamiento hasta encontrar hoy tu ${reps} rep max real.`,
+      }],
+    };
+  });
+  return byWeek;
 }
 
-// ── Día 1 — Full Body A (T1 Sentadilla) ─────────────────────────────────────
-export const FULL_BODY_A = {
-  name: 'Full Body — Sentadilla',
-  color: 'lilac',
-  icon: '🦵',
-  dayLabel: 'Día 1',
+// ── T2a — variante cercana al T1, % de la TM del movimiento relacionado ─────
+const T2A_BLOCK1 = [
+  { week: 1, reps: 10, sets: 4 },
+  { week: 2, reps: 8, sets: 4 },
+  { week: 3, reps: 6, sets: 4 },
+  { week: 4, reps: 4, sets: 5 },
+  { week: 5, reps: 2, sets: 7 },
+];
 
-  T1: [
-    {
-      exercise: 'Sentadilla',
-      note: 'Base 2RM 140 kg.',
-      byWeek: barbellByWeek(140, { 1: 110, 2: 120, 3: 115, 4: 130, 5: 125, 6: 135 }),
-    },
-  ],
+// Idéntico para los días 1-3 — así lo trae la planilla oficial.
+const T2A_BLOCK2 = [
+  { week: 7, reps: 6, sets: 5 },
+  { week: 8, reps: 5, sets: 5 },
+  { week: 9, reps: 4, sets: 5 },
+  { week: 10, reps: 3, sets: 6 },
+  { week: 11, reps: 2, sets: 7 },
+];
 
+const T2_REST = { setsReps: 'Descanso', kg: '—', comment: 'Semana de test de T1: T2 se retira para llegar fresco.' };
+
+function t2aByWeek(relatedBlock1, pctBlock1, pctBlock2, relatedBlock2 = relatedBlock1) {
+  const byWeek = {};
+  T2A_BLOCK1.forEach(({ week, reps, sets }) => {
+    const pctTxt = `${Math.round(pctBlock1[week] * 100)}%`;
+    byWeek[week] = { setsReps: `${sets}×${reps}`, kg: `${pctTxt} TM`, comment: `${pctTxt} de tu Training Max de ${relatedBlock1}.` };
+  });
+  byWeek[6] = T2_REST;
+  T2A_BLOCK2.forEach(({ week, reps, sets }) => {
+    const pctTxt = `${Math.round(pctBlock2[week] * 100)}%`;
+    byWeek[week] = { setsReps: `${sets}×${reps}`, kg: `${pctTxt} TM`, comment: `${pctTxt} de tu Training Max de ${relatedBlock2}.` };
+  });
+  byWeek[12] = T2_REST;
+  return byWeek;
+}
+
+// ── T2b / T2c — accesorios MRS (mismo patrón de reps para los 4 días) ───────
+const T2BC_BLOCK1_REPS = { 1: 15, 2: 12, 3: 10, 4: 8, 5: 6 };
+const T2BC_BLOCK2_REPS = { 7: 12, 8: 10, 9: 8, 10: 6 };
+
+function mrsSet(reps, sets, comment) {
+  return {
+    setsReps: `${sets}MRS×${reps}`, kg: 'Tú decides (MRS)',
+    comment: comment || `Sube de peso en el calentamiento hasta encontrar el de hoy para ${reps} reps con 1-2 en el tanque — esa es tu primera serie. Repite ese mismo peso ${sets - 1} serie(s) más a reps máximas.`,
+  };
+}
+
+function t2mrsByWeek(sets = 3) {
+  const byWeek = {};
+  Object.entries(T2BC_BLOCK1_REPS).forEach(([week, reps]) => { byWeek[Number(week)] = mrsSet(reps, sets); });
+  byWeek[6] = T2_REST;
+  Object.entries(T2BC_BLOCK2_REPS).forEach(([week, reps]) => { byWeek[Number(week)] = mrsSet(reps, sets); });
+  byWeek[11] = { setsReps: 'Descanso', kg: '—', comment: 'Semana de intensidad alta en T1: T2 se retira para llegar fresco.' };
+  byWeek[12] = T2_REST;
+  return byWeek;
+}
+
+// ── T3 — accesorios de alto volumen (MRS, reps bajando cada semana) ────────
+const T3_BLOCK1_REPS = { 1: 20, 2: 18, 3: 16, 4: 14, 5: 12, 6: 10 };
+const T3_BLOCK2_REPS = { 8: 18, 9: 16, 10: 14, 11: 12 };
+
+function t3ByWeek(sets = 3) {
+  const byWeek = {};
+  Object.entries(T3_BLOCK1_REPS).forEach(([week, reps]) => { byWeek[Number(week)] = mrsSet(reps, sets); });
+  byWeek[7] = { setsReps: 'Descanso', kg: '—', comment: 'Reset de Tier 3 al iniciar el Bloque 2 — llega fresco al T1.' };
+  Object.entries(T3_BLOCK2_REPS).forEach(([week, reps]) => { byWeek[Number(week)] = mrsSet(reps, sets); });
+  byWeek[12] = { setsReps: 'Descanso', kg: '—', comment: 'Semana de test de T1: Tier 3 se retira para llegar fresco.' };
+  return byWeek;
+}
+
+const t2a = (name, relatedBlock1, pctBlock1, pctBlock2, relatedBlock2, rest = 150) => ({
+  name, rest, byWeek: t2aByWeek(relatedBlock1, pctBlock1, pctBlock2, relatedBlock2),
+});
+const t2mrs = (name, rest = 90, sets = 3) => ({ name, rest, byWeek: t2mrsByWeek(sets) });
+const t3 = (name, rest = 75, sets = 3) => ({ name, rest, byWeek: t3ByWeek(sets) });
+
+// ── Día 1 — T1 Sentadilla ────────────────────────────────────────────────────
+export const DIA1_SENTADILLA = {
+  name: 'Sentadilla', color: 'lilac', icon: '🦵', dayLabel: 'Día 1',
+  T1: [{
+    exercise: 'Sentadilla',
+    note: 'Declara tu Training Max de Sentadilla antes de empezar (doble cómodo de un día normal, no tu máximo absoluto). Semana 6 y semana 12 son test reales de 1RM.',
+    byWeek: t1ByWeek('Sentadilla', { 1: 0.70, 2: 0.75, 3: 0.80, 4: 0.825, 5: 0.85 }),
+  }],
   T2: [
-    { name: 'Press banca mancuerna inclinado', setsReps: '4×8-12', rest: 90, note: 'Volumen extra de empuje — punto débil declarado (PR banca 60 kg vs 140 kg de Sentadilla/Peso Muerto).', byWeek: stepByWeek(18, 20, 22) },
-    { name: 'Remo con barra', setsReps: '3×8-12', rest: 90, byWeek: stepByWeek(45, 50, 55) },
+    t2a('Peso Muerto con Déficit', 'Peso Muerto', { 1: 0.5, 2: 0.6, 3: 0.7, 4: 0.75, 5: 0.8 }, { 7: 0.7, 8: 0.75, 9: 0.8, 10: 0.825, 11: 0.85 }),
+    t2mrs('Prensa a una pierna', 90),
+    t2mrs('Remo con pecho apoyado', 90),
   ],
-
-  accessories: [
-    { name: 'Curl femoral tumbado', sets: 3, repRange: [10, 15], rest: 60, byWeek: stepByWeek(25, 30, 30) },
-    { name: 'Elevación de talones de pie', sets: 3, repRange: [12, 15], rest: 45, byWeek: stepByWeek(40, 45, 50) },
+  T3: [
+    t3('Remo en polea agarre V'),
+    t3('Curl femoral tumbado'),
+    t3('Extensión de cuádriceps'),
+    t3('Curl martillo con mancuerna', 60),
   ],
 };
 
-// ── Día 2 — Full Body B (T1 Press Banca) ────────────────────────────────────
-export const FULL_BODY_B = {
-  name: 'Full Body — Press Banca',
-  color: 'pink',
-  icon: '💪',
-  dayLabel: 'Día 2',
-
-  T1: [
-    {
-      exercise: 'Press Banca',
-      note: 'Base 2RM 60 kg. Punto débil declarado — este es el día donde recibe el mayor estímulo directo.',
-      byWeek: barbellByWeek(60, { 1: 50, 2: 55, 3: 50, 4: 55, 5: 55, 6: 60 }),
-    },
-  ],
-
+// ── Día 2 — T1 Press Banca ───────────────────────────────────────────────────
+export const DIA2_BANCA = {
+  name: 'Press Banca', color: 'pink', icon: '💪', dayLabel: 'Día 2',
+  T1: [{
+    exercise: 'Press Banca',
+    note: 'Declara tu Training Max de Press Banca antes de empezar. Punto débil declarado (PR 60 kg vs 140 kg de Sentadilla/Peso Muerto) — este día lleva el mayor volumen de empuje de la semana.',
+    byWeek: t1ByWeek('Press Banca', { 1: 0.65, 2: 0.70, 3: 0.75, 4: 0.775, 5: 0.80 }),
+  }],
   T2: [
-    { name: 'Peso muerto rumano con barra', setsReps: '4×8-12', rest: 90, note: 'Cadena posterior — no compite con el T1 de Sentadilla/Peso Muerto de los otros días.', byWeek: stepByWeek(60, 65, 70) },
-    { name: 'Dominadas o jalón al pecho', setsReps: '3×8-12', rest: 90, note: 'Carga relativa al peso corporal (PC 96 kg) o con asistencia según nivel.', byWeek: stepByWeek('Peso corporal', 'Peso corporal', 'Peso corporal') },
+    t2a('Press Banca Agarre Cerrado', 'Press Banca', { 1: 0.5, 2: 0.55, 3: 0.6, 4: 0.625, 5: 0.65 }, { 7: 0.7, 8: 0.75, 9: 0.8, 10: 0.825, 11: 0.85 }),
+    t2mrs('Press Banca Inclinado', 90),
+    t2mrs('Press militar sentado con mancuerna', 90),
   ],
-
-  accessories: [
-    { name: 'Elevación lateral mancuerna', sets: 3, repRange: [12, 15], rest: 60, byWeek: stepByWeek(8, 10, 10) },
-    { name: 'Extensión tríceps en polea', sets: 3, repRange: [10, 15], rest: 60, note: 'Segundo estímulo de tríceps de la semana — apoya el punto débil de empuje.', byWeek: stepByWeek(20, 22, 25) },
+  T3: [
+    t3('Elevación lateral con mancuerna', 60),
+    t3('Vuelos posteriores (deltoides posterior)', 60),
+    t3('Pec deck', 60),
+    t3('Extensión de tríceps en polea', 60),
   ],
 };
 
-// ── Día 3 — Full Body C (T1 Peso Muerto) ────────────────────────────────────
-export const FULL_BODY_C = {
-  name: 'Full Body — Peso Muerto',
-  color: 'cyan',
-  icon: '⚓',
-  dayLabel: 'Día 3',
+// ── Día 3 — T1 Sentadilla Frontal (Bloque 1) → Peso Muerto (Bloque 2) ───────
+export const DIA3_FRONTAL_PESO_MUERTO = {
+  name: 'Sentadilla Frontal / Peso Muerto', color: 'cyan', icon: '⚓', dayLabel: 'Día 3',
+  T1: [{
+    exercise: 'Sentadilla Frontal (semanas 1-6) → Peso Muerto (semanas 7-12)',
+    note: 'Declara tu Training Max de Sentadilla Frontal para el Bloque 1 y de Peso Muerto para el Bloque 2 — la planilla oficial cambia de movimiento entre bloques en este día.',
+    byWeek: t1ByWeek('Sentadilla Frontal', { 1: 0.70, 2: 0.75, 3: 0.80, 4: 0.825, 5: 0.85 }, 'Peso Muerto'),
+  }],
+  T2: [
+    t2a('Sentadilla', 'Sentadilla', { 1: 0.5, 2: 0.6, 3: 0.7, 4: 0.75, 5: 0.8 }, { 7: 0.7, 8: 0.75, 9: 0.8, 10: 0.825, 11: 0.85 }, 'Sentadilla Frontal'),
+    t2mrs('Zancada hacia atrás', 90),
+    t2mrs('Jalón al pecho agarre V', 90),
+  ],
+  T3: [
+    t3('Extensión de cuádriceps'),
+    t3('Curl femoral tumbado'),
+    t3('Jalón al pecho agarre ancho'),
+    t3('Curl barra Z', 60),
+  ],
+};
 
+// ── Día 4 — T1 Press Militar + Press Banca con Pausa (sustituye Sling Shot) ─
+export const DIA4_MILITAR = {
+  name: 'Press Militar', color: 'gold', icon: '🎯', dayLabel: 'Día 4',
   T1: [
     {
-      exercise: 'Peso Muerto',
-      note: 'Base 2RM 140 kg.',
-      technicalCues: [
-        'Pies a ancho de cadera, barra sobre mediopiés',
-        'Caderas atrás, espalda neutra',
-        'Empuja el suelo — no jales la barra',
-      ],
-      byWeek: barbellByWeek(140, { 1: 110, 2: 120, 3: 115, 4: 130, 5: 125, 6: 135 }, { warmupReps: [5, 3, 2] }),
+      exercise: 'Press Militar',
+      note: 'Declara tu Training Max de Press Militar antes de empezar. Sin dato previo en tu programa actual: proyecta uno desde el peso que ya usas de accesorio (~30-35 kg × 8-12, fórmula Epley ≈ peso × (1 + reps/30)) y ajústalo la primera semana según cómo se sienta.',
+      byWeek: t1ByWeek('Press Militar', { 1: 0.60, 2: 0.65, 3: 0.70, 4: 0.775, 5: 0.80 }),
+    },
+    {
+      exercise: 'Press Banca con Pausa',
+      note: 'Reemplaza a Sling Shot Bench de la planilla oficial (sin ese implemento) — mismo criterio que usa Brute en su propio día 4. Sin Training Max: se testea en vivo cada semana, pausa de 1-2 s en el pecho.',
+      byWeek: liveTestByWeek('Press Banca con Pausa'),
     },
   ],
-
   T2: [
-    { name: 'Prensa', setsReps: '4×8-12', rest: 90, note: 'Segundo estímulo de cuádriceps sin repetir Sentadilla pesada.', byWeek: stepByWeek(120, 130, 140) },
-    { name: 'Press militar barra', setsReps: '3×8-12', rest: 90, note: 'Tercer estímulo de empuje de la semana — cierre del volumen extra de Banca.', byWeek: stepByWeek(30, 32, 35) },
+    { name: 'Press Banca con piernas elevadas', rest: 150, byWeek: (() => {
+      const byWeek = {};
+      for (let week = 1; week <= 12; week++) {
+        if ([6, 11, 12].includes(week)) { byWeek[week] = T2_REST; continue; }
+        byWeek[week] = { setsReps: '4×10', kg: 'Tú decides', comment: 'Sin % de Training Max en la planilla oficial para este movimiento: sube de peso semana a semana manteniendo 4×10 con 1-2 reps en reserva.' };
+      }
+      return byWeek;
+    })() },
+    t2mrs('Push Press', 90),
   ],
-
-  accessories: [
-    { name: 'Face pull en polea', sets: 3, repRange: [12, 15], rest: 60, byWeek: stepByWeek(18, 20, 22) },
-    { name: 'Curl bíceps barra Z', sets: 3, repRange: [10, 15], rest: 60, byWeek: stepByWeek(20, 22, 25) },
+  T3: [
+    t3('Extensión de tríceps en polea sobre cabeza', 60),
+    t3('Elevación lateral con mancuerna', 60),
+    t3('Vuelos posteriores (deltoides posterior)', 60),
+    t3('Pec deck', 60),
   ],
 };
 
 export const SESSIONS = {
-  fullBodyA: FULL_BODY_A,
-  fullBodyB: FULL_BODY_B,
-  fullBodyC: FULL_BODY_C,
+  dia1: DIA1_SENTADILLA,
+  dia2: DIA2_BANCA,
+  dia3: DIA3_FRONTAL_PESO_MUERTO,
+  dia4: DIA4_MILITAR,
 };
