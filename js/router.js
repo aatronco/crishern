@@ -1,10 +1,11 @@
 // js/router.js
 import { renderDashboard, bindDashboard } from './views/dashboard.js';
-import { renderWorkout, bindWorkout }     from './views/workout.js';
+import { renderWorkout, bindWorkout, stopWorkoutTimer } from './views/workout.js';
 
 function main() { return document.getElementById('main'); }
 
 async function route() {
+  stopWorkoutTimer();
   const hash  = location.hash || '#/dashboard';
   const parts = hash.replace('#/', '').split('/');
   const root  = parts[0];

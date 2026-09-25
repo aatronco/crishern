@@ -2,8 +2,11 @@
 // Generative cyberpunk ambient music — Web Audio API, zero dependencies.
 // Synthesises kick, bass, hi-hats and atmospheric pad in real time.
 
+import { BRASIL_BPM } from './brasil-score.js';
+import { scheduleBrasil } from './brasil-audio.js';
+
 export class CyberpunkAudio {
-  constructor() {
+  constructor({ voice = 'cyberpunk' } = {}) {
     this.ctx          = null;
     this.master       = null;
     this.comp         = null;
@@ -13,8 +16,10 @@ export class CyberpunkAudio {
     this._timer       = null;
     this._nextTime    = 0;
     this._step        = 0;
-    this.BPM          = 128;
+    this.voice        = voice;
+    this.BPM          = voice === 'brasil' ? BRASIL_BPM : voice === 'kawaii' ? 150 : voice === 'matrix' ? 145 : 128;
     this.STEPS        = 16;
+    this.volume       = 0.18;
   }
 
   get _sd() { return 60 / this.BPM / 4; } // 16th-note duration in seconds
@@ -227,10 +232,209 @@ export class CyberpunkAudio {
     });
   }
 
+  // ── Kawaii instruments (soft music-box / vocaloid-pop timbre) ───────────────
+  _bell(t, freq, dur) {
+    const ctx  = this.ctx;
+    const osc  = ctx.createOscillator();
+    const harm = ctx.createOscillator();
+    osc.type  = 'triangle';  osc.frequency.value  = freq;
+    harm.type = 'sine';      harm.frequency.value = freq * 2;
+    const harmGain = ctx.createGain(); harmGain.gain.value = 0.18;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(0.22, t + 0.006);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    harm.connect(harmGain); harmGain.connect(gain);
+    osc.connect(gain);
+    gain.connect(this.reverb); gain.connect(this.comp);
+    osc.start(t); osc.stop(t + dur);
+    harm.start(t); harm.stop(t + dur);
+  }
+
+  _pluck(t, freq, dur) {
+    const ctx  = this.ctx;
+    const osc  = ctx.createOscillator();
+    osc.type = 'triangle';
+    osc.frequency.value = freq;
+    const filt = ctx.createBiquadFilter();
+    filt.type = 'lowpass';
+    filt.frequency.setValueAtTime(1600, t);
+    filt.frequency.exponentialRampToValueAtTime(400, t + dur * 0.9);
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.001, t);
+    gain.gain.linearRampToValueAtTime(0.32, t + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    osc.connect(filt); filt.connect(gain); gain.connect(this.comp);
+    osc.start(t); osc.stop(t + dur);
+  }
+
+  _shaker(t) {
+    const ctx = this.ctx;
+    const sz  = ctx.sampleRate * 0.05;
+    const buf = ctx.createBuffer(1, sz, ctx.sampleRate);
+    const d   = buf.getChannelData(0);
+    for (let i = 0; i < sz; i++) d[i] = Math.random() * 2 - 1;
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = 10500;
+    bp.Q.value = 0.6;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.1, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.045);
+    src.connect(bp); bp.connect(gain); gain.connect(this.comp);
+    src.start(t); src.stop(t + 0.045);
+  }
+
+  _softPad(t, freq, dur) {
+    const ctx  = this.ctx;
+    const filt = ctx.createBiquadFilter();
+    filt.type = 'lowpass';
+    filt.frequency.value = 2600;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(0.09, t + dur * 0.3);
+    gain.gain.setValueAtTime(0.09, t + dur * 0.7);
+    gain.gain.linearRampToValueAtTime(0, t + dur);
+    [-4, 4].forEach(detune => {
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      osc.detune.value = detune;
+      osc.connect(filt);
+      osc.start(t); osc.stop(t + dur);
+    });
+    filt.connect(gain);
+    gain.connect(this.reverb);
+    gain.connect(this.comp);
+  }
+
+  // Chord roots per bar: C, G, Am, F (I–V–vi–IV pop progression)
+  _scheduleStepKawaii(t, step) {
+    const s   = step % this.STEPS;
+    const sd  = this._sd;
+    const bar = Math.floor(step / this.STEPS) % 4;
+    const BASS_ROOTS = [130.81, 196.00, 220.00, 174.61];   // C3 G3 A3 F3
+    const PAD_ROOTS  = [261.63, 392.00, 440.00, 349.23];   // C4 G4 A4 F4
+    // C major pentatonic, one octave up: C5 D5 E5 G5 A5
+    const SCALE = [523.25, 587.33, 659.25, 783.99, 880.00];
+    const MELODY = [
+      [0,1,0,2,0,0,3,0, 0,2,0,1,0,0,0,0],
+      [3,0,2,0,0,1,0,0, 4,0,3,0,2,0,0,0],
+      [0,2,0,3,0,4,0,3, 0,2,0,0,1,0,0,0],
+      [1,0,2,0,3,0,2,0, 1,0,0,0,0,0,0,0],
+    ][bar];
+
+    if (s === 0 || s === 8) this._pluck(t, BASS_ROOTS[bar], sd * 4);
+    if (s === 0) this._softPad(t, PAD_ROOTS[bar], sd * 16);
+    if (s % 2 === 1) this._shaker(t);
+    const note = MELODY[s];
+    if (note > 0) this._bell(t, SCALE[note - 1], sd * 0.9);
+  }
+
+  // ── Matrix instruments (hard industrial techno — distinct from cyberpunk) ───
+  _acid(t, freq, dur) {
+    const ctx  = this.ctx;
+    const osc  = ctx.createOscillator();
+    osc.type = 'sawtooth';
+    osc.frequency.value = freq;
+    const filt = ctx.createBiquadFilter();
+    filt.type = 'lowpass';
+    filt.Q.value = 18;
+    filt.frequency.setValueAtTime(2600, t);
+    filt.frequency.exponentialRampToValueAtTime(120, t + dur * 0.8);
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.001, t);
+    gain.gain.linearRampToValueAtTime(0.42, t + 0.004);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + dur * 0.95);
+    osc.connect(filt); filt.connect(gain); gain.connect(this.comp);
+    osc.start(t); osc.stop(t + dur);
+  }
+
+  // Harder, shorter, more clipped than the cyberpunk kick — a straight machine thump
+  _industrialKick(t) {
+    const ctx  = this.ctx;
+    const shaper = ctx.createWaveShaper();
+    const curve  = new Float32Array(256);
+    for (let i = 0; i < 256; i++) {
+      const x = (i * 2) / 256 - 1;
+      curve[i] = Math.tanh(x * 6);
+    }
+    shaper.curve = curve;
+    const osc  = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(150, t);
+    osc.frequency.exponentialRampToValueAtTime(45, t + 0.07);
+    gain.gain.setValueAtTime(1.6, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
+    osc.connect(shaper); shaper.connect(gain); gain.connect(this.comp);
+    osc.start(t); osc.stop(t + 0.16);
+  }
+
+  // Metallic, ringing hat — a resonant bandpass ping instead of soft noise
+  _metalHat(t, open = false) {
+    const ctx = this.ctx;
+    const sz  = ctx.sampleRate * (open ? 0.16 : 0.03);
+    const buf = ctx.createBuffer(1, sz, ctx.sampleRate);
+    const d   = buf.getChannelData(0);
+    for (let i = 0; i < sz; i++) d[i] = Math.random() * 2 - 1;
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = 5200;
+    bp.Q.value = 9;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(open ? 0.2 : 0.15, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + (open ? 0.16 : 0.03));
+    src.connect(bp); bp.connect(gain); gain.connect(this.comp);
+    src.start(t); src.stop(t + (open ? 0.16 : 0.03));
+  }
+
+  // Distorted stab — an industrial clang punctuating the loop
+  _clang(t) {
+    const ctx = this.ctx;
+    const osc = ctx.createOscillator();
+    osc.type = 'square';
+    osc.frequency.value = 220;
+    const filt = ctx.createBiquadFilter();
+    filt.type = 'bandpass';
+    filt.frequency.value = 900;
+    filt.Q.value = 4;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.28, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+    osc.connect(filt); filt.connect(gain); gain.connect(this.comp); gain.connect(this.reverb);
+    osc.start(t); osc.stop(t + 0.1);
+  }
+
+  // Relentless straight 4/4 industrial techno; acid bassline in E minor over 4 bars
+  _scheduleStepMatrix(t, step) {
+    const s   = step % this.STEPS;
+    const sd  = this._sd;
+    const bar = Math.floor(step / this.STEPS) % 4;
+    if (s % 4 === 0) this._industrialKick(t);
+    if (s % 2 === 1) this._metalHat(t, s === 15);
+    if (s % 8 === 4) this._clang(t);
+    const ROOTS = [41.2, 49, 36.7, 55]; // E1 G1 D1 A1
+    const ACID = [
+      [1,0,1,1, 0,1,0,1, 1,0,1,0, 1,0,1,0],
+      [1,0,1,0, 1,1,0,1, 0,1,0,1, 1,0,0,1],
+      [1,1,0,1, 0,1,0,1, 1,0,1,0, 0,1,0,1],
+      [1,0,1,0, 1,0,1,1, 0,1,0,1, 1,0,1,0],
+    ][bar];
+    if (ACID[s]) this._acid(t, ROOTS[bar] * (s % 8 === 0 ? 2 : 1), sd * 0.9);
+  }
+
   // ── Sequencer ───────────────────────────────────────────────────────────────
   // Bass patterns — 4 bars that loop. Frequencies in Hz (A1=55, G1=49, E1=41.2, D1=36.7, B1=61.7)
   // 0 = rest
   _scheduleStep(t, step) {
+    if (this.voice === 'brasil') return scheduleBrasil(this.ctx, this.comp, t, step, this._sd);
+    if (this.voice === 'kawaii') return this._scheduleStepKawaii(t, step);
+    if (this.voice === 'matrix') return this._scheduleStepMatrix(t, step);
     const s  = step % this.STEPS;
     const sd = this._sd;
     const bar = Math.floor(step / this.STEPS) % 4;
@@ -271,6 +475,8 @@ export class CyberpunkAudio {
 
   _schedule() {
     const LOOKAHEAD = 0.12; // seconds
+    // A suspended tab must not schedule a burst of old notes when resumed.
+    if (this._nextTime < this.ctx.currentTime - LOOKAHEAD) this._nextTime = this.ctx.currentTime;
     while (this._nextTime < this.ctx.currentTime + LOOKAHEAD) {
       this._scheduleStep(this._nextTime, this._step);
       this._nextTime += this._sd;
@@ -280,16 +486,16 @@ export class CyberpunkAudio {
   }
 
   // ── Public API ───────────────────────────────────────────────────────────────
-  start() {
+  async start() {
     this._init();
-    if (this.ctx.state === 'suspended') this.ctx.resume();
+    if (this.ctx.state === 'suspended') await this.ctx.resume();
     if (this.playing) return;
     this.playing    = true;
     this._nextTime  = this.ctx.currentTime + 0.05;
     this._step      = 0;
     this.master.gain.cancelScheduledValues(this.ctx.currentTime);
     this.master.gain.setValueAtTime(0, this.ctx.currentTime);
-    this.master.gain.linearRampToValueAtTime(0.82, this.ctx.currentTime + 2);
+    this.master.gain.linearRampToValueAtTime(this.volume, this.ctx.currentTime + 2);
     this._schedule();
   }
 
@@ -302,8 +508,20 @@ export class CyberpunkAudio {
     this.master.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 1.8);
   }
 
-  toggle() {
-    if (this.playing) this.stop(); else this.start();
+  setVolume(value) {
+    this.volume = Math.min(0.4, Math.max(0, Number(value) || 0));
+    if (this.playing) this.master.gain.setTargetAtTime(this.volume, this.ctx.currentTime, 0.1);
+  }
+
+  dispose() {
+    this.stop();
+    clearTimeout(this._timer);
+    if (this.ctx && this.ctx.state !== 'closed') this.ctx.close().catch(() => {});
+    this.ctx = null;
+  }
+
+  async toggle() {
+    if (this.playing) this.stop(); else await this.start();
     return this.playing;
   }
 }

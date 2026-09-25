@@ -1,0 +1,11 @@
+{
+  "name": "crishern",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "check:spreadsheet": "python3 scripts/import-spreadsheet.py --check",
+    "midi": "node scripts/generate-brasil-midi.mjs"
+  },
+  "engines": { "node": ">=18" }
+}

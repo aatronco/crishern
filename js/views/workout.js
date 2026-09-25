@@ -1,342 +1,119 @@
-// js/views/workout.js
-import { SESSIONS } from '../workout-data.js';
-import { getT1Sets, clampWeek } from '../load-calculator.js';
+import { SESSIONS, MAX_LABELS, TM_CELLS, sessionName } from '../workout-data.js';
+import { clampWeek, getExercises, getSessionRows, calculateLoad, readMaxes } from '../load-calculator.js';
 import { createTimer } from '../timer.js';
 
 let activeTimer = null;
+const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const percent = value => `${Math.round(value * 1000) / 10}%`;
+const number = value => String(value).replace('.', ',');
+
+function loadLabel(row, maxes) {
+  if (row.load) {
+    const kg = calculateLoad(row, maxes);
+    const [block, lift] = TM_CELLS[row.load.tmCell];
+    return `<strong>${number(kg)} kg</strong> <span class="program-note">(${percent(row.load.percent)} del TM de ${MAX_LABELS[lift].toLowerCase()}: ${number(maxes[block][lift])} kg)</span>`;
+  }
+  if (typeof row.weight === 'number' && row.weight > 0 && row.weight < 1) {
+    return `<strong>${percent(row.weight)} del RM encontrado hoy</strong>`;
+  }
+  return escape(row.weight);
+}
+
+function setPrescription(row, maxes) {
+  const amrap = String(row.sets).endsWith('+');
+  const sets = parseInt(row.sets, 10);
+  return `<p class="prescription"><strong>${sets} series × ${row.reps} rep${row.reps === 1 ? '' : 's'}</strong> · ${loadLabel(row, maxes)}</p>
+    ${amrap ? '<p class="program-note">+ La última de esas series es AMRAP opcional (máximas repeticiones), dejando 1–2 en reserva. No es una serie adicional.</p>' : ''}`;
+}
+
+function renderExercise(row, maxes) {
+  const mrs = typeof row.sets === 'string' && row.sets.endsWith('MRS');
+  const rm = typeof row.weight === 'string' && /^Find \d+RM$/.test(row.weight);
+  const target = rm ? Number(row.weight.match(/\d+/)[0]) : row.reps;
+  let content;
+  if (mrs) {
+    content = `<p class="prescription"><strong>Buscar ${target}RM</strong> · carga elegida en la sesión.</p>
+      <p class="prescription">Después: <strong>${parseInt(row.sets, 10)} series MRS adicionales</strong> con ese mismo peso.</p>
+      <p class="program-note">Máximas repeticiones dejando 1–2 en reserva. Las reps pueden bajar entre series; no son ${parseInt(row.sets, 10)} series fijas de ${target}.</p>`;
+  } else if (rm) {
+    content = `<p class="prescription"><strong>${target === 1 ? 'Test: buscar 1RM' : `Buscar ${target}RM`}</strong> · carga elegida en la sesión.</p>`;
+  } else {
+    content = setPrescription(row, maxes);
+  }
+  if (row.backoff) content += `<div class="backoff"><span class="tier-label">Series posteriores</span>${setPrescription(row.backoff, maxes)}</div>`;
+  return `<article class="session-card exercise-card" data-exercise="${escape(row.exercise)}" data-source="${row.cell}" data-tier="${row.tier}">
+    <h3 class="session-card__title"><span class="tier-label">T${row.tier}</span> ${escape(row.exercise)}</h3>
+    ${content}
+  </article>`;
+}
 
 export function renderWorkout(sessionKey, weekParam) {
   const session = SESSIONS[sessionKey];
-  if (!session) return `<p style="padding:20px;color:var(--dim)">Sesión no encontrada.</p>`;
-
+  if (!session) return '<p class="page">Sesión no encontrada.</p>';
   const week = clampWeek(weekParam);
-
-  return `
-    <div style="padding:14px 14px 20px;" id="workout-view">
-      <button class="btn btn-dim" data-back="${week}" style="margin-bottom:12px;padding:8px 16px;">← Volver</button>
-
-      <div class="phase-banner phase-banner--${session.color}">
-        ◈ ${session.name} — Semana ${week}
-      </div>
-
-      ${renderSession(sessionKey, session, week)}
-
-      <div style="display:flex;gap:10px;margin-top:24px;">
-        <button id="btn-print-session"
-          style="flex:1;padding:16px;border-radius:14px;
-                 border:1px solid var(--border);background:transparent;color:var(--dim);
-                 font-size:16px;font-weight:800;cursor:pointer;">
-          🖶 Imprimir
-        </button>
-      </div>
-    </div>
-    <div id="timer-overlay" class="timer-overlay" style="display:none;">
+  const exercises = getExercises(sessionKey, week);
+  const rows = getSessionRows(sessionKey, week);
+  const maxes = readMaxes();
+  const restMarkers = [...new Set(rows.filter(row => typeof row.exercise === 'string' && /Rest/.test(row.exercise)).map(row => row.exercise))];
+  const rests = restMarkers.map(value => ({
+    'T2 Rest': 'Descanso de T2 (salvo un test indicado arriba).',
+    'T3 Rest': 'Descanso de T3.',
+    'T2b & T2c Rest': 'Descanso de T2b y T2c.',
+    'Week 7 T3 Rest All Days': 'Semana 7: descanso de T3 todos los días.',
+  })[value] || value);
+  return `<div class="page" id="workout-view">
+    <a class="btn btn-dim" data-back href="#/dashboard/${week}">← Volver</a>
+    <h1 class="phase-banner phase-banner--${session.color}">${session.dayLabel} · ${sessionName(sessionKey, week)} — Semana ${week}</h1>
+    <p class="program-note">${week <= 6 ? 'Bloque 1: series posteriores al RM calculadas sobre el Training Max.' : 'Bloque 2: series posteriores de T1 al 85% o 90% del RM de hoy; T2 usa el Training Max del bloque 2.'}</p>
+    ${['1', '2', '3'].map(tier => {
+      const group = exercises.filter(row => row.tier.startsWith(tier));
+      return group.length ? `<section data-tier-section="${tier}"><h2>T${tier}${tier === '1' ? ' · Principales' : tier === '2' ? ' · Secundarios' : ' · Accesorios'}</h2>${group.map(row => renderExercise(row, maxes)).join('')}</section>` : '';
+    }).join('')}
+    ${rests.length ? `<aside class="tip-box"><h2>Descansos del programa</h2>${rests.map(rest => `<p>${escape(rest)}</p>`).join('')}</aside>` : ''}
+    <details class="session-card guide">
+      <summary>Cómo leer el programa</summary>
+      <p>RM: peso para el número de repeticiones indicado. MRS: series de máximas repeticiones con el mismo peso después de buscar el RM. Deja 1–2 repeticiones en reserva en MRS y AMRAP.</p>
+      <p>El signo + indica AMRAP en la última serie, si te sientes bien. En el bloque 1, el Excel propone intentar el doble de las repeticiones escritas como objetivo del AMRAP.</p>
+      <p>Descanso entre series: T1, 3–5 minutos; T2, 2–3 minutos.</p>
+      <p>Los ejercicios mostrados son los asignados en esta semana del Excel. Las celdas sin ejercicio no agregan trabajo.</p>
+    </details>
+    <details class="session-card no-print timer-controls">
+      <summary>Temporizador de descanso</summary>
+      <div class="timer-buttons">${[60, 90, 120, 180, 240, 300].map(s => `<button class="btn" data-rest="${s}">${s / 60} min</button>`).join('')}</div>
+    </details>
+    <button class="btn" id="btn-print-session">Imprimir sesión</button>
+    <div id="timer-overlay" class="timer-overlay" style="display:none;" role="dialog" aria-label="Temporizador de descanso" aria-modal="true">
       <div class="timer-overlay__label">Descanso</div>
       <div class="timer-overlay__time" id="timer-display">0:00</div>
       <button class="timer-overlay__skip" id="btn-skip-timer">Saltar</button>
     </div>
-  `;
+  </div>`;
 }
 
-function renderSession(sessionKey, session, week) {
-  const t1Blocks = (session.T1 || []).map((t1, i) => `
-    <h2 class="sh" style="margin-top:18px;">
-      <span class="dot" style="background:var(--${session.color})"></span>T1 — ${t1.exercise}
-    </h2>
-    ${t1.note ? `<div style="font-size:12px;color:var(--note);margin-bottom:8px;">${t1.note}</div>` : ''}
-    ${renderT1Table(getT1Sets(sessionKey, week, i))}
-  `).join('');
-
-  return `
-    ${t1Blocks}
-
-    ${session.T2?.length ? `
-      <h2 class="sh" style="margin-top:18px;">
-        <span class="dot" style="background:var(--mint)"></span>T2 — Hipertrofia
-      </h2>
-      ${renderT2List(session.T2, week)}
-    ` : ''}
-
-    ${session.kineBlock ? renderKineBlock(session.kineBlock) : ''}
-
-    ${session.T3?.length ? `
-      <h2 class="sh" style="margin-top:18px;">
-        <span class="dot" style="background:var(--orange)"></span>Accesorios obligatorios
-      </h2>
-      ${renderFixedList(session.T3)}
-    ` : ''}
-
-    ${session.accessories?.length ? `
-      <h2 class="sh" style="margin-top:18px;">
-        <span class="dot" style="background:var(--orange)"></span>Accesorios
-      </h2>
-      ${renderAccessoryList(session.accessories, week)}
-    ` : ''}
-
-    ${session.chipper ? renderChipperBlock(session.chipper) : ''}
-
-    ${session.cycling ? renderCyclingBlock(session.cycling) : ''}
-
-    ${session.cardio?.length ? `
-      <h2 class="sh" style="margin-top:18px;">
-        <span class="dot" style="background:var(--gold)"></span>Cardio
-      </h2>
-      ${renderCardioList(session.cardio)}
-    ` : ''}
-  `;
+export function stopWorkoutTimer() {
+  activeTimer?.stop();
+  activeTimer = null;
 }
 
-export function bindWorkout(sessionKey) {
-  const backBtn = document.querySelector('[data-back]');
-  backBtn?.addEventListener('click', () => {
-    location.hash = `#/dashboard/${backBtn.dataset.back}`;
+export function bindWorkout() {
+  document.getElementById('btn-print-session')?.addEventListener('click', () => window.print());
+  document.querySelectorAll('[data-rest]').forEach(button => {
+    button.addEventListener('click', () => startTimer(Number(button.dataset.rest)));
   });
-  document.getElementById('btn-print-session')?.addEventListener('click', () => {
-    window.print();
-  });
-
-  if (!SESSIONS[sessionKey]) return;
-
-  if (activeTimer) { activeTimer.stop(); activeTimer = null; }
-
-  document.querySelectorAll('[data-rest]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const secs = parseInt(btn.dataset.rest, 10);
-      if (secs > 0) startTimer(secs);
-    });
-  });
-
-  const skipBtn = document.getElementById('btn-skip-timer');
-  if (skipBtn) skipBtn.addEventListener('click', () => { if (activeTimer) activeTimer.skip(); });
-
-  document.querySelectorAll('[data-cycling-tab]').forEach(tab => {
-    tab.addEventListener('click', () => {
-      const idx = tab.dataset.cyclingTab;
-      document.querySelectorAll('[data-cycling-tab]').forEach(t => t.classList.toggle('btn-dim', t.dataset.cyclingTab !== idx));
-      document.querySelectorAll('[data-cycling-panel]').forEach(p => {
-        p.style.display = p.dataset.cyclingPanel === idx ? '' : 'none';
-      });
-    });
-  });
-
-  document.querySelectorAll('[data-chipper-tab]').forEach(tab => {
-    tab.addEventListener('click', () => {
-      const idx = tab.dataset.chipperTab;
-      document.querySelectorAll('[data-chipper-tab]').forEach(t => t.classList.toggle('btn-dim', t.dataset.chipperTab !== idx));
-      document.querySelectorAll('[data-chipper-panel]').forEach(p => {
-        p.style.display = p.dataset.chipperPanel === idx ? '' : 'none';
-      });
-    });
-  });
+  document.getElementById('btn-skip-timer')?.addEventListener('click', () => activeTimer?.skip());
 }
 
-// ── Render helpers ──────────────────────────────────────────────────────────
-
-function restButton(rest) {
-  return rest > 0
-    ? `<button data-rest="${rest}" style="background:var(--accent);border:none;border-radius:8px;padding:3px 10px;color:#fff;font-size:11px;cursor:pointer;margin-left:8px;">▶</button>`
-    : '';
-}
-
-function renderT1Table(sets) {
-  if (!sets.length) return `<p style="color:var(--dim);font-size:13px;padding:8px 0;">Sin sets para esta semana.</p>`;
-  return `
-    <table class="set-table">
-      <thead><tr><th>Serie</th><th>Reps</th><th>Kg</th><th>Desc</th><th></th></tr></thead>
-      <tbody>
-        ${sets.map(s => `
-          <tr class="${s.type === 'work' ? 'set-row--work' : ''}">
-            <td>${s.label}</td>
-            <td>${s.reps}</td>
-            <td>${typeof s.kg === 'number' ? s.kg + ' kg' : s.kg}</td>
-            <td>${s.rest ? s.rest + '"' : '—'}</td>
-            <td>${s.rest > 0 ? `<button data-rest="${s.rest}" style="background:var(--accent);border:none;border-radius:8px;padding:4px 10px;color:#fff;font-size:11px;cursor:pointer;">▶</button>` : ''}</td>
-          </tr>
-          ${s.note ? `<tr><td colspan="5" style="font-size:11px;color:var(--cyan);padding-bottom:6px;">${s.note}</td></tr>` : ''}
-        `).join('')}
-      </tbody>
-    </table>
-  `;
-}
-
-function renderT2List(exercises, week) {
-  return exercises.map(e => {
-    const weekly = e.byWeek?.[week];
-    const isWaveT2 = weekly && typeof weekly === 'object';
-    const setsReps = isWaveT2 ? weekly.setsReps : e.setsReps;
-    const kg       = isWaveT2 ? weekly.kg       : weekly;
-    const kgLabel  = kg === undefined ? '' : (typeof kg === 'number' ? ` @ ${kg} kg` : ` @ ${kg}`);
-    const comment  = isWaveT2 ? weekly.comment : undefined;
-    return `
-      <div class="session-card">
-        <div class="session-card__title">${e.name}</div>
-        <div class="ex-meta" style="font-size:13px;color:var(--dim);">
-          <b style="color:var(--text)">${setsReps}${kgLabel}</b>
-          ${e.rest ? `· ${e.rest}"` : ''}
-          ${restButton(e.rest)}
-        </div>
-        ${comment ? `<div style="font-size:11px;color:var(--cyan);margin-top:5px;">${comment}</div>` : ''}
-        ${e.note ? `<div style="font-size:12px;color:var(--note);margin-top:5px;">${e.note}</div>` : ''}
-      </div>
-    `;
-  }).join('');
-}
-
-function renderFixedList(exercises) {
-  return exercises.map(e => `
-    <div class="session-card">
-      <div class="session-card__title">
-        ${e.name}
-        ${e.obligatorio ? '<span class="pill-obligatorio">OBLIGATORIO</span>' : ''}
-      </div>
-      <div class="ex-meta" style="font-size:13px;color:var(--dim);">
-        <b style="color:var(--text)">${e.setsReps}</b>
-        ${e.rest ? `· ${e.rest}"` : ''}
-        ${restButton(e.rest)}
-      </div>
-      ${e.note ? `<div style="font-size:12px;color:var(--note);margin-top:5px;">${e.note}</div>` : ''}
-    </div>
-  `).join('');
-}
-
-function renderAccessoryList(accessories, week) {
-  return accessories.map(a => {
-    const kg = a.byWeek?.[week];
-    const kgLabel = kg === undefined ? '' : (typeof kg === 'number' ? `${kg} kg · ` : `${kg} · `);
-    const unit = a.repUnit || '';
-    return `
-      <div class="session-card">
-        <div class="session-card__title">${a.name}</div>
-        <div class="ex-meta" style="font-size:13px;color:var(--dim);">
-          <b style="color:var(--text)">${kgLabel}${a.sets}×${a.repRange[0]}-${a.repRange[1]}${unit}</b>
-          ${a.rest ? `· ${a.rest}"` : ''}
-          ${restButton(a.rest)}
-        </div>
-        ${a.note ? `<div style="font-size:12px;color:var(--note);margin-top:5px;">${a.note}</div>` : ''}
-      </div>
-    `;
-  }).join('');
-}
-
-function renderCyclingBlock(cycling) {
-  return `
-    <div style="margin:16px 0 8px;font-size:12px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:1px;">
-      ${cycling.label}
-    </div>
-    <div style="font-size:12px;color:var(--dim);margin-bottom:10px;">${cycling.note}</div>
-    <div class="cycling-tabs" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
-      ${cycling.options.map((o, i) => `
-        <button class="btn ${i === 0 ? '' : 'btn-dim'}" data-cycling-tab="${i}"
-          style="padding:8px 14px;font-size:13px;">${o.name}</button>
-      `).join('')}
-    </div>
-    ${cycling.options.map((o, i) => `
-      <div class="cycling-panel" data-cycling-panel="${i}" style="${i === 0 ? '' : 'display:none;'}">
-        <div class="session-card">
-          <div class="session-card__title">${o.rounds} rondas for time</div>
-          ${o.movements.map(m => `
-            <div class="ex-meta" style="font-size:13px;color:var(--dim);margin-top:4px;">
-              <b style="color:var(--text)">${m.reps}${m.repUnit || ''} ${m.name}</b>
-              ${m.kg ? ` @ ${m.kg} kg` : ''}
-            </div>
-            ${m.note ? `<div style="font-size:11px;color:var(--note);margin:2px 0 4px;">${m.note}</div>` : ''}
-          `).join('')}
-        </div>
-      </div>
-    `).join('')}
-  `;
-}
-
-function renderChipperSteps(steps) {
-  return steps.map(s => s.burpees ? `
-    <div class="ex-meta" style="font-size:13px;color:var(--orange);margin-top:6px;font-weight:700;">
-      ${s.burpees} Burpees
-    </div>
-  ` : `
-    <div class="ex-meta" style="font-size:13px;color:var(--dim);margin-top:6px;">
-      <b style="color:var(--text)">${s.reps}${s.repUnit || ''} ${s.name}</b>
-      ${s.kg ? ` @ ${s.kg} kg` : ''}
-    </div>
-    ${s.note ? `<div style="font-size:11px;color:var(--note);margin:2px 0 4px;">${s.note}</div>` : ''}
-  `).join('');
-}
-
-function renderChipperBlock(chipper) {
-  return `
-    <div style="margin:16px 0 8px;font-size:12px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:1px;">
-      ${chipper.label}
-    </div>
-    <div style="font-size:12px;color:var(--dim);margin-bottom:10px;">${chipper.note}</div>
-    <div class="chipper-tabs" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
-      ${chipper.options.map((o, i) => `
-        <button class="btn ${i === 0 ? '' : 'btn-dim'}" data-chipper-tab="${i}"
-          style="padding:8px 14px;font-size:13px;">${o.name}</button>
-      `).join('')}
-    </div>
-    ${chipper.options.map((o, i) => `
-      <div class="chipper-panel" data-chipper-panel="${i}" style="${i === 0 ? '' : 'display:none;'}">
-        <div class="session-card">
-          ${o.note ? `<div style="font-size:11px;color:var(--note);margin-bottom:6px;">${o.note}</div>` : ''}
-          ${renderChipperSteps(o.steps)}
-        </div>
-      </div>
-    `).join('')}
-  `;
-}
-
-function renderCardioList(items) {
-  return items.map(c => `
-    <div class="session-card">
-      <div class="session-card__title">${c.name}</div>
-      <div class="ex-meta" style="font-size:13px;color:var(--dim);"><b style="color:var(--text)">${c.duration}</b></div>
-      ${c.note ? `<div style="font-size:12px;color:var(--note);margin-top:5px;">${c.note}</div>` : ''}
-    </div>
-  `).join('');
-}
-
-function renderKineBlock(bloque) {
-  return `
-    <div style="margin:16px 0 8px;font-size:12px;font-weight:700;color:var(--cyan);text-transform:uppercase;letter-spacing:1px;">
-      ${bloque.label}
-    </div>
-    <div style="font-size:12px;color:var(--dim);margin-bottom:8px;">${bloque.note}</div>
-    ${bloque.exercises.map(e => `
-      <div class="session-card">
-        <div class="session-card__title">${e.name}</div>
-        <div class="ex-meta" style="font-size:13px;color:var(--dim);">
-          <b style="color:var(--text)">${e.load}</b> · ${e.setsReps}
-          ${restButton(e.rest)}
-        </div>
-        ${e.note ? `<div style="font-size:12px;color:var(--note);margin-top:5px;">${e.note}</div>` : ''}
-      </div>
-    `).join('')}
-  `;
-}
-
-// ── Timer ───────────────────────────────────────────────────────────────────
 function startTimer(seconds) {
-  const overlay  = document.getElementById('timer-overlay');
-  const display  = document.getElementById('timer-display');
+  stopWorkoutTimer();
+  const overlay = document.getElementById('timer-overlay');
+  const display = document.getElementById('timer-display');
   if (!overlay || !display) return;
-
+  const trigger = document.activeElement;
   overlay.style.display = 'flex';
-
-  if (activeTimer) activeTimer.stop();
-
-  activeTimer = createTimer(
-    seconds,
-    remaining => { display.textContent = formatTime(remaining); },
-    () => {
-      overlay.style.display = 'none';
-      activeTimer = null;
-      if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-    }
+  document.getElementById('btn-skip-timer').focus();
+  activeTimer = createTimer(seconds,
+    remaining => { display.textContent = `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, '0')}`; },
+    () => { overlay.style.display = 'none'; activeTimer = null; trigger?.focus(); }
   );
   activeTimer.start();
-}
-
-function formatTime(s) {
-  const m = Math.floor(s / 60);
-  const r = s % 60;
-  return `${m}:${String(r).padStart(2, '0')}`;
 }

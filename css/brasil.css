@@ -1,0 +1,81 @@
+/* Brasil — deep green, sun yellow, blue and warm paper. */
+body[data-theme="brasil"] {
+  --bg: #f7f8e9;
+  --card: #fffef5;
+  --card2: #edf3d8;
+  --border: #bfd1a4;
+  --text: #153f2d;
+  --dim: #4e675a;
+  --lilac: #148047;
+  --purple: #148047;
+  --mint: #187749;
+  --cyan: #175eaa;
+  --pink: #175eaa;
+  --orange: #ac5708;
+  --gold: #977000;
+  --note: #376449;
+  --accent: #137a43;
+  --font-display: 'Baloo 2', 'Outfit', sans-serif;
+  --role-t2: #187749;
+  --role-t3: #175eaa;
+  --role-cardio: #977000;
+  --role-comment: #376449;
+  --surface: #fffef5;
+  --surface-2: #edf3d8;
+  --surface-3: #dce9c4;
+  --muted: #4e675a;
+  --muted-2: #6a816d;
+  --border-2: #bfd1a4;
+  --glow-cyan: none;
+  --glow-pink: none;
+  --glow-purple: none;
+  --glow-mint: none;
+  --glow-gold: none;
+  --glow-lilac: none;
+  color: var(--text);
+  background: radial-gradient(ellipse at 100% 0%, #ffdc5266, transparent 50%),
+    repeating-linear-gradient(135deg, #16854c06 0 2px, transparent 2px 24px), var(--bg);
+}
+body[data-theme="brasil"]::before, body[data-theme="brasil"] #app::before { display: none; }
+body[data-theme="brasil"] .audio-bar { border-bottom: 3px solid #eacb37; }
+body[data-theme="brasil"] .wordmark { color: #126838; font-family: var(--font-display); text-shadow: none; }
+body[data-theme="brasil"] .wordmark::before { content: '🇧🇷 '; }
+body[data-theme="brasil"] .audio-controls button,
+body[data-theme="brasil"] .audio-controls select {
+  color: #174c30; background: #fffbe0 !important; border: 1px solid #a6be89 !important;
+  border-radius: 999px; box-shadow: none;
+}
+body[data-theme="brasil"] .audio-controls button[aria-pressed="true"] { background: #ffdd48 !important; color: #173f2a; }
+body[data-theme="brasil"] .equalizer i { background: #148047; box-shadow: none; }
+body[data-theme="brasil"] .system-label, body[data-theme="brasil"] .midi-download { color: #175eaa; text-shadow: none; }
+body[data-theme="brasil"] .hero {
+  position: relative; overflow: hidden; border: 1px solid #b6cd92; border-top: 5px solid #158048;
+  background: linear-gradient(115deg, #fffef5 35%, #fbefb5); border-radius: 20px;
+  box-shadow: 0 6px 20px #16582f0c; padding: 24px;
+}
+body[data-theme="brasil"] .hero::after { background: linear-gradient(90deg, #168448, #ffda43, #1d5eac); }
+body[data-theme="brasil"] .hero h1 { color: #125832; text-shadow: none; }
+body[data-theme="brasil"] .hero p, body[data-theme="brasil"] .hero-sub { color: #435e48; }
+body[data-theme="brasil"] .hero-sub::after { content: ' ☀'; }
+body[data-theme="brasil"] .day-link { border-radius: 16px; background: #fffef5; border-color: #a9c58b; color: #16472e; box-shadow: 0 3px 12px #194a1b0b; }
+body[data-theme="brasil"] .day-link:hover { background: #fff6c9; border-color: #d1b632; }
+body[data-theme="brasil"] .day-link::before { background: linear-gradient(#158048 40%, #f3d345 40% 70%, #175eaa 70%); }
+body[data-theme="brasil"] .program-note,
+body[data-theme="brasil"] .combination-advice { color: #435e48; background: transparent; border-color: #bfd1a4; border-left-color: #158048; }
+body[data-theme="brasil"] summary { color: #176b3b; }
+body[data-theme="brasil"] .flex-block, body[data-theme="brasil"] .session-card { background: var(--card); border-color: #bfd1a4; border-radius: 18px; box-shadow: 0 3px 14px #16582f0b; }
+body[data-theme="brasil"] .phase-banner { color: #164f31; background: #eaf2d8; border-color: #a6bf89; }
+body[data-theme="brasil"] .phase-banner--cyan,
+body[data-theme="brasil"] .phase-banner--pink { color: #164a85; background: #e8eff6; border-color: #a9bfd7; }
+body[data-theme="brasil"] .phase-banner--gold { color: #685100; background: #fff4c5; border-color: #daca7a; }
+body[data-theme="brasil"] .week-picker a[aria-current],
+body[data-theme="brasil"] .block-options .btn[aria-pressed="true"] { color: #183e27 !important; background: #ffdd48 !important; border-color: #bda526; }
+body[data-theme="brasil"] .block-options .btn[aria-pressed="false"] { color: #245238 !important; background: #f4f7e8 !important; border-color: #bfd1a4; }
+body[data-theme="brasil"] .tier-label { background: #ecf2d9; color: #165e35; }
+body[data-theme="brasil"] .timer-overlay { background: #f6f9eeFA; }
+body[data-theme="brasil"] .timer-overlay__time { color: #14703e; text-shadow: none; }
+body[data-theme="brasil"] .timer-overlay__skip { color: #174c30; background: #ffdd48; border-color: #a38b26; }
+@media print {
+  body[data-theme="brasil"] { background: white; }
+  body[data-theme="brasil"] .audio-bar { display: none; }
+}

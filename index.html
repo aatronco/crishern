@@ -4,10 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Crishern</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;800&family=Comfortaa:wght@400;600;700&family=JetBrains+Mono:wght@300;400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/brasil.css">
   <link rel="stylesheet" href="css/print.css" media="print">
   <link rel="manifest" href="manifest.json">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -17,17 +19,31 @@
 </head>
 <body>
   <div id="app">
+    <header id="ambience" class="audio-bar no-print">
+      <a href="#/dashboard" class="wordmark" aria-label="Crishern, inicio">Crishern</a>
+      <div class="audio-controls">
+        <button id="music-toggle" type="button" aria-pressed="false">▶ Música kawaii ✨</button>
+        <label class="volume-control">Volumen <input id="music-volume" type="range" min="0" max="40" value="18"></label>
+        <a id="midi-download" class="midi-download" href="music/brute-kawaii.mid" download>MIDI ↓</a>
+        <select id="theme-select" aria-label="Tema visual y musical"></select>
+      </div>
+      <span id="music-status" class="system-label" role="status">♪ STANDBY ♪</span>
+    </header>
     <nav id="topnav" class="hidden"></nav>
     <main id="main"></main>
     <div id="bottom-nav"></div>
   </div>
   <script type="module">
     import { initRouter } from './js/router.js';
+    import { initTheme } from './js/theme.js';
+    import { initAmbience } from './js/ambience.js';
     initRouter();
+    initTheme();
+    initAmbience();
   </script>
   <script>
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => navigator.serviceWorker.register('sw.js'));
+      window.addEventListener('load', () => navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(() => {}));
     }
   </script>
 </body>

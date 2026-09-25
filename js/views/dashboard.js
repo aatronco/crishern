@@ -1,42 +1,61 @@
-// js/views/dashboard.js
-import { SESSIONS, PROGRAM_WEEKS, APP_NAME, APP_ICON, APP_TAGLINE } from '../workout-data.js';
-import { clampWeek } from '../load-calculator.js';
+import { SESSIONS, PROGRAM_WEEKS, APP_NAME, APP_ICON, APP_TAGLINE, MAX_LABELS, sessionName } from '../workout-data.js';
+import { clampWeek, readMaxes, saveMaxes } from '../load-calculator.js';
 
 export function renderDashboard(weekParam) {
   const week = clampWeek(weekParam);
-
+  const maxes = readMaxes();
   return `
-    <div style="padding:20px 14px;">
-      <div class="hero" style="border-radius:14px;margin-bottom:16px;">
+    <div class="page">
+      <div class="hero">
         <div class="hero-eyebrow">▸ ${APP_NAME.toUpperCase()} ▸</div>
         <h1>${APP_ICON} Semana ${week}/${PROGRAM_WEEKS}</h1>
-        <p class="hero-sub">${APP_TAGLINE}</p>
+        <p>${APP_TAGLINE}</p>
       </div>
-
-      <div style="display:flex;gap:6px;margin-bottom:18px;">
+      <nav class="week-picker" aria-label="Semana del programa">
         ${Array.from({ length: PROGRAM_WEEKS }, (_, i) => i + 1).map(w => `
-          <a href="#/dashboard/${w}"
-            style="flex:1;text-align:center;padding:10px 0;border-radius:10px;
-                   font-weight:800;text-decoration:none;font-family:var(--font-display);
-                   ${w === week
-                     ? 'background:var(--accent);color:#fff;'
-                     : 'background:var(--card);color:var(--dim);border:1px solid var(--border);'}">
-            ${w}
-          </a>
+          <a href="#/dashboard/${w}" ${w === week ? 'aria-current="page"' : ''}>${w}</a>
         `).join('')}
-      </div>
-
-      <div style="display:flex;flex-direction:column;gap:10px;">
+      </nav>
+      <p class="program-note">Bloque ${week <= 6 ? '1 · Semanas 1–6' : '2 · Semanas 7–12'} · Mesociclo ${['A', 'B', 'C', 'D'][Math.floor((week - 1) / 3)]}</p>
+      <div class="day-list">
         ${Object.entries(SESSIONS).map(([key, s]) => `
-          <a href="#/workout/${key}/${week}" style="display:block;padding:16px;background:var(--card);border:1px solid var(--${s.color});border-radius:14px;color:var(--${s.color});font-weight:800;text-decoration:none;text-align:center;">
-            ${s.icon} ${s.dayLabel} — ${s.name}
+          <a class="day-link phase-banner--${s.color}" href="#/workout/${key}/${week}">
+            ${s.icon} ${s.dayLabel} — ${sessionName(key, week)}
           </a>
         `).join('')}
       </div>
-    </div>
-  `;
+      <details class="session-card maxes-panel">
+        <summary>Máximos de Cristóbal (kg)</summary>
+        <p class="program-note">Training Max (TM): 2RM diario estimado. Frontal inicial: 98 kg, estimada al 70% de la sentadilla de 140 kg. Cada bloque tiene su propia tabla; ambos comienzan con tus máximos actuales.</p>
+        <form id="maxes-form">
+          ${['block1', 'block2'].map((block, i) => `
+            <fieldset><legend>Bloque ${i + 1} · Semanas ${i ? '7–12' : '1–6'}</legend>
+              <div class="maxes-grid">${Object.entries(MAX_LABELS).map(([lift, label]) => `
+                <label>${label}<input name="${block}-${lift}" type="number" inputmode="decimal" min="0.1" step="any" required value="${maxes[block][lift]}"></label>
+              `).join('')}</div>
+            </fieldset>
+          `).join('')}
+          <button class="btn" type="submit">Guardar máximos</button>
+          <p id="maxes-status" role="status"></p>
+        </form>
+      </details>
+      <p class="program-note">Programa de la hoja J&amp;T2.0 KGS. Los nombres y cambios de ejercicios se mantienen como en el Excel; los kilos se calculan con tus máximos y se redondean a 2,5 kg.</p>
+    </div>`;
 }
 
 export function bindDashboard() {
-  // Sin estado que enlazar — la semana vive en la URL.
+  document.getElementById('maxes-form')?.addEventListener('submit', event => {
+    event.preventDefault();
+    const values = new FormData(event.currentTarget);
+    const maxes = Object.fromEntries(['block1', 'block2'].map(block => [block,
+      Object.fromEntries(Object.keys(MAX_LABELS).map(lift => [lift, Number(values.get(`${block}-${lift}`))])),
+    ]));
+    const status = document.getElementById('maxes-status');
+    try {
+      saveMaxes(maxes);
+      status.textContent = 'Máximos guardados en este dispositivo.';
+    } catch {
+      status.textContent = 'No se pudieron guardar. Revisa los valores y el almacenamiento del navegador.';
+    }
+  });
 }

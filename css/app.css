@@ -331,3 +331,43 @@ body { padding-bottom: calc(64px + var(--safe-bottom)); }
 }
 .week-nav-btn:disabled { opacity: .3; cursor: default; }
 .week-nav-btn:not(:disabled):hover { border-color: var(--cyan); color: #2e828f; }
+
+/* J&T weekly program */
+* { box-sizing: border-box; }
+body { margin: 0; }
+.page { max-width: 760px; margin: 0 auto; padding: 20px 16px; }
+.hero { margin-bottom: 20px; }
+.hero h1 { margin-bottom: 4px; }
+.hero p, .program-note { color: #735e80; font-size: 13px; line-height: 1.6; }
+.week-picker { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+.week-picker a { text-align: center; padding: 12px 0; border: 1px solid var(--border); border-radius: 12px; color: var(--text); text-decoration: none; }
+.week-picker a[aria-current] { background: var(--lilac); font-weight: 800; }
+.day-list { display: grid; gap: 12px; margin: 20px 0; }
+.day-link { padding: 18px; border-radius: 16px; text-decoration: none; font-weight: 700; line-height: 1.6; }
+.maxes-panel summary, .guide summary, .timer-controls summary { font-weight: 700; cursor: pointer; line-height: 1.6; }
+fieldset { border: 1px solid var(--border); border-radius: 12px; margin: 16px 0; padding: 12px; min-width: 0; }
+legend { font-size: 13px; padding: 0 6px; }
+.maxes-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.maxes-grid label { display: grid; gap: 8px; font-size: 12px; line-height: 1.5; }
+.maxes-grid input { width: 100%; min-width: 0; padding: 12px; font-size: 16px; }
+.phase-banner { font-size: 18px; line-height: 1.4; }
+.exercise-card .session-card__title { display: block; font-size: 20px; margin: 0 0 12px; line-height: 1.4; }
+.exercise-card .session-card__title::before { content: none; }
+.tier-label { display: inline-block; font: 700 12px 'Comfortaa', sans-serif; background: var(--card2); border-radius: 6px; padding: 5px 7px; vertical-align: middle; }
+.prescription { font-size: 14px; line-height: 1.7; margin: 10px 0; }
+.backoff { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 14px; }
+.guide p, .tip-box p { font-size: 13px; line-height: 1.6; }
+.timer-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.timer-overlay::before { pointer-events: none; }
+.timer-overlay__skip { position: relative; min-height: 44px; }
+@media (min-width: 600px) { .week-picker { grid-template-columns: repeat(12, 1fr); } }
+
+.audio-bar { max-width: 760px; margin: 0 auto; padding: 18px 16px; border-bottom: 2px solid var(--border); display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.wordmark { font: 800 24px 'Baloo 2', sans-serif; color: #7556a7; text-decoration: none; }
+.audio-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.audio-controls button, .audio-controls select { font: inherit; font-size: 12px; min-height: 44px; border: 1px solid var(--border); border-radius: 12px; background: var(--card); color: var(--text); padding: 8px 12px; }
+.audio-controls button { cursor: pointer; }
+.volume-control { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.volume-control input { width: 90px; accent-color: var(--accent); }
+.midi-download { color: #7556a7; font-size: 12px; }
+.system-label { display: block; font-size: 11px; color: var(--note); }
